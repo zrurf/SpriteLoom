@@ -60,15 +60,26 @@ public sealed class CompositeImageCodec : IImageCodec
 
     public byte[] Encode(RgbaImage image, string format, int quality)
     {
+        Exception? last = null;
+
         foreach (var codec in _codecs)
         {
-            if (codec.CanEncode(format))
+            if (!codec.CanEncode(format))
+            {
+                continue;
+            }
+
+            try
             {
                 return codec.Encode(image, format, quality);
             }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                last = exception;
+            }
         }
 
-        throw new ArgumentException($"No codec supports {format}.", nameof(format));
+        throw new InvalidDataException($"No codec could encode {format}.", last);
     }
 
     public byte[] EncodePng(RgbaImage image) => Encode(image, "png", 100);

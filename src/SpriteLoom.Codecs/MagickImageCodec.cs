@@ -6,20 +6,21 @@ namespace SpriteLoom.Codecs;
 
 public sealed class MagickImageCodec : IImageCodec
 {
-    private static readonly string[] SupportedExtensions = [".jxl", ".avif"];
-    private static readonly string[] SupportedFormats = ["jxl", "avif"];
+    private static readonly string[] SupportedExtensions = [".png", ".webp", ".jxl", ".avif"];
+    private static readonly Lazy<IReadOnlyDictionary<string, MagickFormat>> AvailableFormats =
+        new(FindAvailableFormats);
 
     public string Id => "magick";
 
     public IReadOnlyCollection<string> Extensions => SupportedExtensions;
 
-    public IReadOnlyCollection<string> EncodableFormats => SupportedFormats;
+    public IReadOnlyCollection<string> EncodableFormats => AvailableFormats.Value.Keys.ToArray();
 
     public bool CanDecode(string path) =>
         SupportedExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase);
 
     public bool CanEncode(string format) =>
-        SupportedFormats.Contains(format, StringComparer.OrdinalIgnoreCase);
+        AvailableFormats.Value.ContainsKey(format);
 
     public RgbaImage Decode(ReadOnlySpan<byte> data)
     {
@@ -51,12 +52,10 @@ public sealed class MagickImageCodec : IImageCodec
     {
         ArgumentNullException.ThrowIfNull(image);
 
-        var magickFormat = format switch
+        if (!AvailableFormats.Value.TryGetValue(format, out var magickFormat))
         {
-            "jxl" => MagickFormat.Jxl,
-            "avif" => MagickFormat.Avif,
-            _ => throw new ArgumentException($"Unsupported image format: {format}", nameof(format))
-        };
+            throw new ArgumentException($"ImageMagick does not support writing {format}.", nameof(format));
+        }
 
         try
         {
@@ -81,5 +80,33 @@ public sealed class MagickImageCodec : IImageCodec
         }
     }
 
-    public byte[] EncodePng(RgbaImage image) => Encode(image, "jxl", 100);
+    public byte[] EncodePng(RgbaImage image) => Encode(image, "png", 100);
+
+    private static IReadOnlyDictionary<string, MagickFormat> FindAvailableFormats()
+    {
+        var candidates = new Dictionary<string, MagickFormat>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["png"] = MagickFormat.Png,
+            ["webp"] = MagickFormat.WebP,
+            ["jxl"] = MagickFormat.Jxl,
+            ["avif"] = MagickFormat.Avif
+        };
+        var available = new Dictionary<string, MagickFormat>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var (name, format) in candidates)
+        {
+            try
+            {
+                if (MagickFormatInfo.Create(format)?.SupportsWriting == true)
+                {
+                    available[name] = format;
+                }
+            }
+            catch (Exception)
+            {
+            }
+        }
+
+        return available;
+    }
 }

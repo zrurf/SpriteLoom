@@ -57,5 +57,5 @@ jobs:
       - name: Test with native encoders
         shell: bash
         env:
-          SLOOM_NATIVE_PATH: ${{ github.workspace }}/.build/native/host-release/libsloom_native.so
+          SLOOM_NATIVE_PATH: ${{ github.workspace }}/.build/native/host-release/sloom_native.so
         run: dotnet test tests/SpriteLoom.Integration.Tests/SpriteLoom.Integration.Tests.csproj -c Release
