@@ -10,5 +10,6 @@
   <ItemGroup>
     <PackageReference Include="Magick.NET-Q8-AnyCPU" />
     <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
   </ItemGroup>
 </Project>
