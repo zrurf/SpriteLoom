@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../SpriteLoom.Abstractions/SpriteLoom.Abstractions.csproj" />
+    <ProjectReference Include="../SpriteLoom.Imaging/SpriteLoom.Imaging.csproj" />
+    <ProjectReference Include="../SpriteLoom.Packing/SpriteLoom.Packing.csproj" />
+    <ProjectReference Include="../SpriteLoom.Codecs/SpriteLoom.Codecs.csproj" />
+    <ProjectReference Include="../SpriteLoom.Textures/SpriteLoom.Textures.csproj" />
+    <ProjectReference Include="../SpriteLoom.Compression/SpriteLoom.Compression.csproj" />
+    <ProjectReference Include="../SpriteLoom.Security/SpriteLoom.Security.csproj" />
+    <ProjectReference Include="../SpriteLoom.Bundle/SpriteLoom.Bundle.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Tomlyn" />
+  </ItemGroup>
+</Project>

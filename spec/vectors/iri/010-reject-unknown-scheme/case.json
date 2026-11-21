@@ -1,0 +1,6 @@
+{
+  "name": "iri.reject.unknown-scheme",
+  "kind": "iri.reject",
+  "input": { "iri": "sloom://heroes/a" },
+  "expected": { "code": "SL1003" }
+}

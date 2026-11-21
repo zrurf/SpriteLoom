@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../SpriteLoom.Foundation/SpriteLoom.Foundation.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="K4os.Compression.LZ4" />
+  </ItemGroup>
+</Project>

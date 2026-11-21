@@ -1,0 +1,22 @@
+; SpriteLoom animation, draft.
+
+animation = {
+  "format": "sprite-loom/animation",
+  "format-major": uint,
+  "format-minor": uint,
+  "uri": tstr,
+  "frames": [* (uint / tstr)],
+  "durations-ms": [* uint],
+  "loop": bool,
+  ? "playback": "forward" / "reverse" / "pingpong",
+  ? "fps": [uint, uint],
+  ? "events": [* event],
+  ? "binding-digest": bstr .size 8,
+  ? "extras": { * tstr => any },
+}
+
+event = {
+  "frame": uint,
+  "kind": tstr,
+  ? "data": any,
+}

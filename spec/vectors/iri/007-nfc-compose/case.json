@@ -1,0 +1,6 @@
+{
+  "name": "iri.normalize.nfc-compose",
+  "kind": "iri.normalize",
+  "input": { "iri": "frame://heroes/e\u0301" },
+  "expected": { "iri": "frame://heroes/\u00e9" }
+}

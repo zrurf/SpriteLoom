@@ -1,0 +1,101 @@
+; SpriteLoom manifest, draft.
+; The CDDL definitions in this directory are authoritative.
+
+manifest = {
+  "format": "sprite-loom",
+  "format-major": uint,
+  "format-minor": uint,
+  "bundle": bundle,
+  "package": package,
+  "generator": generator,
+  "pages": [* page],
+  "uris": [* tstr],
+  "frames": frames,
+  "animations": [* anim-ref],
+  "blobs": [* blob-ref],
+  ? "signatures": [* sig-ref],
+  ? "allowlist": allowlist,
+  ? "extras": { * tstr => any },
+}
+
+bundle = {
+  "id": tstr,
+  "requires": [* { "id": tstr, "digest": digest }],
+}
+
+package = {
+  "id": tstr,
+  ? "display-name": tstr,
+}
+
+generator = {
+  "name": tstr,
+  "version": tstr,
+  ? "stamp": tstr,
+}
+
+digest = {
+  "alg": tstr,
+  "value": bstr,
+}
+
+page = {
+  "uri": uint,
+  "group": tstr,
+  "order": uint,
+  "required": bool,
+  "container": tstr,
+  "container-digest": digest,
+  "size": [uint, uint],
+  "pixel-format": tstr,
+  "variants": [* variant],
+  ? "layout-digest": bstr .size 8,
+}
+
+variant = {
+  "id": tstr,
+  "codec": tstr,
+  "file": tstr,
+  "digest": digest,
+  ? "pixel-format": tstr,
+}
+
+frames = {
+  "to-record": [* uint],
+  "records": [* record],
+}
+
+record = {
+  "page": uint,
+  "stored": uint,
+  "origin": [uint, uint],
+  "offset": [uint, uint],
+  "pivot": [uint, uint],
+  "flags": uint,
+  ? "mesh": uint,
+}
+
+anim-ref = {
+  "uri": uint,
+  "file": tstr,
+  "digest": digest,
+  "frame-count": uint,
+}
+
+blob-ref = {
+  "uri": uint,
+  "file": tstr,
+  "digest": digest,
+  "size": uint,
+}
+
+sig-ref = {
+  "key-id": tstr,
+  "file": tstr,
+  "alg": tstr,
+}
+
+allowlist = {
+  "mode": "strict" / "permissive" / "off",
+  "files": { * tstr => digest },
+}

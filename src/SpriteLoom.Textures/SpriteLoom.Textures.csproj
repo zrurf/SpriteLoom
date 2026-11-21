@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../SpriteLoom.Foundation/SpriteLoom.Foundation.csproj" />
+    <ProjectReference Include="../SpriteLoom.Abstractions/SpriteLoom.Abstractions.csproj" />
+    <ProjectReference Include="../SpriteLoom.Imaging/SpriteLoom.Imaging.csproj" />
+  </ItemGroup>
+  <ItemGroup Condition="Exists('$(MSBuildThisFileDirectory)../../.build/native/host-release/sloom_native.dll')">
+    <Content Include="$(MSBuildThisFileDirectory)../../.build/native/host-release/sloom_native.dll">
+      <Link>sloom_native.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+</Project>

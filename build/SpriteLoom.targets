@@ -1,0 +1,15 @@
+<Project>
+  <PropertyGroup>
+    <SpriteLoomEnabled Condition="'$(SpriteLoomEnabled)' == ''">false</SpriteLoomEnabled>
+    <SpriteLoomConfig Condition="'$(SpriteLoomConfig)' == ''">sloom.toml</SpriteLoomConfig>
+    <SpriteLoomCli Condition="'$(SpriteLoomCli)' == ''">sloom</SpriteLoomCli>
+    <SpriteLoomRefresh Condition="'$(SpriteLoomRefresh)' == ''">false</SpriteLoomRefresh>
+    <SpriteLoomExtraArgs Condition="'$(SpriteLoomRefresh)' == 'true'"> --refresh</SpriteLoomExtraArgs>
+  </PropertyGroup>
+
+  <Target Name="SpriteLoomPack"
+          BeforeTargets="Build"
+          Condition="'$(SpriteLoomEnabled)' == 'true' and Exists('$(SpriteLoomConfig)')">
+    <Exec Command="$(SpriteLoomCli) pack --config &quot;$(SpriteLoomConfig)&quot;$(SpriteLoomExtraArgs)" />
+  </Target>
+</Project>

@@ -1,0 +1,6 @@
+{
+  "name": "iri.normalize.unicode",
+  "kind": "iri.normalize",
+  "input": { "iri": "frame://heroes/角色/待机" },
+  "expected": { "iri": "frame://heroes/角色/待机" }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "iri.reject.package-path",
+  "kind": "iri.reject",
+  "input": { "iri": "pkg://heroes/a" },
+  "expected": { "code": "SL1004" }
+}

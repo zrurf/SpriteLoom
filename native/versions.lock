@@ -1,0 +1,5 @@
+# Native dependency lock.
+# Format: <name> <commit> <license>
+astcenc 22ba8a01391063445a15b81ab0435a89ee046a15 Apache-2.0
+etcpak 3d716e1550023dc5ff8b602636af8b76584e0b66 BSD-3-Clause
+basisu 073eb6a0a34a23d77e75e54f41dcd9653a52da83 Apache-2.0

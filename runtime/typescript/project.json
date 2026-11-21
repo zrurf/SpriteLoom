@@ -1,0 +1,30 @@
+{
+  "name": "typescript",
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm -C runtime/typescript -r build"
+      },
+      "cache": true,
+      "inputs": [
+        "{projectRoot}/**/*",
+        "{workspaceRoot}/spec/vectors/**/*"
+      ],
+      "outputs": [
+        "{projectRoot}/packages/*/dist/**/*"
+      ]
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm -C runtime/typescript -r test"
+      },
+      "cache": true,
+      "inputs": [
+        "{projectRoot}/**/*",
+        "{workspaceRoot}/spec/vectors/**/*"
+      ]
+    }
+  }
+}

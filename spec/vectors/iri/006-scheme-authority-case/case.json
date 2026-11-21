@@ -1,0 +1,6 @@
+{
+  "name": "iri.normalize.scheme-authority-case",
+  "kind": "iri.normalize",
+  "input": { "iri": "FRAME://Heroes/Run" },
+  "expected": { "iri": "frame://heroes/Run" }
+}

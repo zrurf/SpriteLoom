@@ -1,0 +1,6 @@
+{
+  "name": "iri.normalize.frame-ascii",
+  "kind": "iri.normalize",
+  "input": { "iri": "frame://heroes/run/0001" },
+  "expected": { "iri": "frame://heroes/run/0001" }
+}

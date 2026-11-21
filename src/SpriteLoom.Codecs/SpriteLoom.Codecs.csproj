@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../SpriteLoom.Foundation/SpriteLoom.Foundation.csproj" />
+    <ProjectReference Include="../SpriteLoom.Abstractions/SpriteLoom.Abstractions.csproj" />
+    <ProjectReference Include="../SpriteLoom.Imaging/SpriteLoom.Imaging.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Magick.NET-Q8-AnyCPU" />
+    <PackageReference Include="SkiaSharp" />
+  </ItemGroup>
+</Project>

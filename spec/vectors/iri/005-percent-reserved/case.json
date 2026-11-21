@@ -1,0 +1,6 @@
+{
+  "name": "iri.normalize.percent-reserved",
+  "kind": "iri.normalize",
+  "input": { "iri": "blob://heroes/a%2fb.txt" },
+  "expected": { "iri": "blob://heroes/a%2Fb.txt" }
+}

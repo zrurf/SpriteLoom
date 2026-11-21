@@ -1,0 +1,12 @@
+{
+  "name": "spec",
+  "targets": {
+    "verify": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "dotnet test tests/SpriteLoom.Model.Tests/SpriteLoom.Model.Tests.csproj"
+      },
+      "cache": false
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "iri.reject.query",
+  "kind": "iri.reject",
+  "input": { "iri": "frame://heroes/a?b" },
+  "expected": { "code": "SL1005" }
+}

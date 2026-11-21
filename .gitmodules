@@ -1,0 +1,9 @@
+[submodule "native/third_party/astcenc"]
+	path = native/third_party/astcenc
+	url = https://github.com/ARM-software/astc-encoder.git
+[submodule "native/third_party/etcpak"]
+	path = native/third_party/etcpak
+	url = https://github.com/wolfpld/etcpak.git
+[submodule "native/third_party/basisu"]
+	path = native/third_party/basisu
+	url = https://github.com/BinomialLLC/basis_universal.git

@@ -1,0 +1,12 @@
+{
+  "name": "native",
+  "targets": {
+    "native-build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cmake -S native -B .build/native/host-release -G Ninja -DCMAKE_BUILD_TYPE=Release && cmake --build .build/native/host-release -j 4"
+      },
+      "outputs": ["{workspaceRoot}/.build/native/host-release"]
+    }
+  }
+}

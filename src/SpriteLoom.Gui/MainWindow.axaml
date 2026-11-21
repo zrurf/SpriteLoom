@@ -1,0 +1,69 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:SpriteLoom.Gui.Controls"
+        x:Class="SpriteLoom.Gui.MainWindow"
+        Title="SpriteLoom"
+        Width="1280"
+        Height="820"
+        MinWidth="960"
+        MinHeight="640">
+  <Grid RowDefinitions="Auto,*,Auto" Margin="8">
+    <StackPanel Orientation="Horizontal" Spacing="6">
+      <Button Content="Open package" Command="{Binding OpenPackageCommand}" />
+      <Button Content="Pack" Command="{Binding PackCommand}" />
+      <Button Content="Cancel" Command="{Binding CancelCommand}" />
+      <Separator Width="1" Margin="8,0" />
+      <Button Content="Play" Command="{Binding PlayPauseCommand}" />
+      <Button Content="Previous" Command="{Binding PreviousFrameCommand}" />
+      <Button Content="Next" Command="{Binding NextFrameCommand}" />
+      <TextBlock Text="{Binding Status}" VerticalAlignment="Center" Margin="12,0,0,0" />
+    </StackPanel>
+
+    <Grid Grid.Row="1" ColumnDefinitions="240,*,300" Margin="0,8">
+      <Border BorderBrush="#33000000" BorderThickness="1" CornerRadius="4" Padding="4">
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Top" Text="Animations" FontWeight="SemiBold" Margin="4" />
+          <ListBox ItemsSource="{Binding Animations}"
+                   SelectedItem="{Binding SelectedAnimation}"
+                   DisplayMemberBinding="{Binding Uri}" />
+        </DockPanel>
+      </Border>
+
+      <Grid Grid.Column="1" ColumnDefinitions="*,*" Margin="8,0">
+        <Border BorderBrush="#33000000" BorderThickness="1" CornerRadius="4" Padding="4">
+          <DockPanel>
+            <TextBlock DockPanel.Dock="Top" Text="Atlas" FontWeight="SemiBold" Margin="4" />
+            <controls:AtlasPreview Bitmap="{Binding AtlasBitmap}"
+                                   Highlight="{Binding Highlight}" />
+          </DockPanel>
+        </Border>
+        <Border Grid.Column="1" BorderBrush="#33000000" BorderThickness="1" CornerRadius="4" Padding="4" Margin="8,0,0,0">
+          <DockPanel>
+            <TextBlock DockPanel.Dock="Top" Text="Frame" FontWeight="SemiBold" Margin="4" />
+            <controls:FramePreview Bitmap="{Binding FrameBitmap}"
+                                   Source="{Binding FrameSource}"
+                                   Destination="{Binding FrameDestination}"
+                                   OriginWidth="{Binding OriginWidth}"
+                                   OriginHeight="{Binding OriginHeight}" />
+          </DockPanel>
+        </Border>
+      </Grid>
+
+      <StackPanel Grid.Column="2" Spacing="6">
+        <TextBlock Text="Project" FontWeight="SemiBold" />
+        <TextBox Text="{Binding ProjectPath}" PlaceholderText="sloom.toml or project directory" />
+        <TextBlock Text="Package" FontWeight="SemiBold" Margin="0,8,0,0" />
+        <TextBox Text="{Binding PackagePath}" PlaceholderText="build/heroes or heroes.slb" />
+        <Button Content="Load package" Command="{Binding OpenPackageCommand}" />
+        <TextBlock Text="{Binding FrameLabel}" Margin="0,12,0,0" />
+      </StackPanel>
+    </Grid>
+
+    <Slider Grid.Row="2"
+            Minimum="0"
+            Maximum="{Binding MaxFrameIndex}"
+            Value="{Binding FrameIndex}"
+            TickFrequency="1"
+            IsSnapToTickEnabled="True" />
+  </Grid>
+</Window>

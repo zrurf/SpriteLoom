@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../SpriteLoom.Foundation/SpriteLoom.Foundation.csproj" />
+    <ProjectReference Include="../SpriteLoom.Model/SpriteLoom.Model.csproj" />
+    <ProjectReference Include="../SpriteLoom.Hosting/SpriteLoom.Hosting.csproj" />
+    <ProjectReference Include="../SpriteLoom.Security/SpriteLoom.Security.csproj" />
+    <ProjectReference Include="../SpriteLoom.Bundle/SpriteLoom.Bundle.csproj" />
+    <ProjectReference Include="../SpriteLoom.Codecs/SpriteLoom.Codecs.csproj" />
+    <ProjectReference Include="../SpriteLoom.Textures/SpriteLoom.Textures.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Spectre.Console" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../SpriteLoom.Foundation/SpriteLoom.Foundation.csproj" />
+    <ProjectReference Include="../SpriteLoom.Model/SpriteLoom.Model.csproj" />
+    <ProjectReference Include="../SpriteLoom.Compression/SpriteLoom.Compression.csproj" />
+    <ProjectReference Include="../SpriteLoom.Security/SpriteLoom.Security.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Formats.Cbor" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../SpriteLoom.Foundation/SpriteLoom.Foundation.csproj" />
+    <ProjectReference Include="../SpriteLoom.Model/SpriteLoom.Model.csproj" />
+    <ProjectReference Include="../SpriteLoom.Abstractions/SpriteLoom.Abstractions.csproj" />
+  </ItemGroup>
+</Project>

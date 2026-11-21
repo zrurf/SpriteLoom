@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsAotCompatible>false</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../SpriteLoom.Commands/SpriteLoom.Commands.csproj" />
+    <ProjectReference Include="../SpriteLoom.Hosting/SpriteLoom.Hosting.csproj" />
+    <ProjectReference Include="../SpriteLoom.PluginHost/SpriteLoom.PluginHost.csproj" />
+  </ItemGroup>
+</Project>

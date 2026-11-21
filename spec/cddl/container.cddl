@@ -1,0 +1,40 @@
+; SpriteLoom page container, draft.
+
+container = {
+  "format": "sprite-loom/container",
+  "format-major": uint,
+  "format-minor": uint,
+  "page": uint,
+  "size": [uint, uint],
+  "pixel-format": tstr,
+  "alpha": "straight" / "premultiplied",
+  "variants": [* variant],
+  "stored": [* stored],
+  ? "meshes": [* mesh],
+  ? "layout-digest": bstr .size 8,
+}
+
+variant = {
+  "id": tstr,
+  "codec": tstr,
+  "file": tstr,
+  "digest": digest,
+  ? "pixel-format": tstr,
+}
+
+stored = {
+  "rect": [uint, uint, uint, uint],
+  "rotation": 0 / 90 / 180 / 270,
+  "digest": bstr .size 8,
+}
+
+mesh = {
+  "vertices": [* [int, int]],
+  "indices": [* uint],
+  ? "hull": [* uint],
+}
+
+digest = {
+  "alg": tstr,
+  "value": bstr,
+}

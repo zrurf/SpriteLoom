@@ -1,0 +1,6 @@
+{
+  "name": "iri.normalize.package-root",
+  "kind": "iri.normalize",
+  "input": { "iri": "pkg://heroes" },
+  "expected": { "iri": "pkg://heroes" }
+}

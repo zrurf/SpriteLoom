@@ -1,0 +1,6 @@
+{
+  "name": "iri.reject.trailing-slash",
+  "kind": "iri.reject",
+  "input": { "iri": "frame://heroes/a/" },
+  "expected": { "code": "SL1004" }
+}

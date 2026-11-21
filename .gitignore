@@ -1,0 +1,47 @@
+# Build outputs
+.build/
+**/bin/
+**/obj/
+**/TestResults/
+**/BenchmarkDotNet.Artifacts/
+
+# Nx
+.nx/installation/
+.nx/cache/
+.nx/workspace-data/
+.nx/self-healing/
+.nx/migrate-runs/
+
+# Node
+node_modules/
+.pnpm-store/
+*.tsbuildinfo
+runtime/typescript/packages/*/dist/
+
+# Dart
+.dart_tool/
+.packages
+.pub-cache/
+runtime/dart/**/build/
+runtime/dart/**/pubspec.lock
+.flutter-plugins
+.flutter-plugins-dependencies
+samples/**/build/
+
+# IDE
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local
+dev-note/
+artifacts/
+.tmp/
+.cache/
+.sloom-cache/

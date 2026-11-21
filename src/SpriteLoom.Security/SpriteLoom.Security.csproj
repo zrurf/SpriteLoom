@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../SpriteLoom.Foundation/SpriteLoom.Foundation.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Blake3" />
+    <PackageReference Include="BouncyCastle.Cryptography" />
+    <PackageReference Include="System.Formats.Cbor" />
+    <PackageReference Include="System.IO.Hashing" />
+  </ItemGroup>
+</Project>

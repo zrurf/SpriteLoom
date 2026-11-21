@@ -1,0 +1,30 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SpriteLoom.Abstractions/SpriteLoom.Abstractions.csproj" />
+    <Project Path="src/SpriteLoom.Bundle/SpriteLoom.Bundle.csproj" />
+    <Project Path="src/SpriteLoom.Cli.Jit/SpriteLoom.Cli.Jit.csproj" />
+    <Project Path="src/SpriteLoom.Codecs/SpriteLoom.Codecs.csproj" />
+    <Project Path="src/SpriteLoom.Commands/SpriteLoom.Commands.csproj" />
+    <Project Path="src/SpriteLoom.Compression/SpriteLoom.Compression.csproj" />
+    <Project Path="src/SpriteLoom.Foundation/SpriteLoom.Foundation.csproj" />
+    <Project Path="src/SpriteLoom.Gui/SpriteLoom.Gui.csproj" />
+    <Project Path="src/SpriteLoom.Hosting/SpriteLoom.Hosting.csproj" />
+    <Project Path="src/SpriteLoom.Imaging/SpriteLoom.Imaging.csproj" />
+    <Project Path="src/SpriteLoom.Model/SpriteLoom.Model.csproj" />
+    <Project Path="src/SpriteLoom.Packing/SpriteLoom.Packing.csproj" />
+    <Project Path="src/SpriteLoom.Pipeline/SpriteLoom.Pipeline.csproj" />
+    <Project Path="src/SpriteLoom.PluginHost/SpriteLoom.PluginHost.csproj" />
+    <Project Path="src/SpriteLoom.Security/SpriteLoom.Security.csproj" />
+    <Project Path="src/SpriteLoom.Textures/SpriteLoom.Textures.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SpriteLoom.Bundle.Tests/SpriteLoom.Bundle.Tests.csproj" />
+    <Project Path="tests/SpriteLoom.Foundation.Tests/SpriteLoom.Foundation.Tests.csproj" />
+    <Project Path="tests/SpriteLoom.Imaging.Tests/SpriteLoom.Imaging.Tests.csproj" />
+    <Project Path="tests/SpriteLoom.Integration.Tests/SpriteLoom.Integration.Tests.csproj" />
+    <Project Path="tests/SpriteLoom.Model.Tests/SpriteLoom.Model.Tests.csproj" />
+    <Project Path="tests/SpriteLoom.Packing.Tests/SpriteLoom.Packing.Tests.csproj" />
+    <Project Path="tests/SpriteLoom.Repository.Tests/SpriteLoom.Repository.Tests.csproj" />
+    <Project Path="tests/SpriteLoom.Textures.Tests/SpriteLoom.Textures.Tests.csproj" />
+  </Folder>
+</Solution>

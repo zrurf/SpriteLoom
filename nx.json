@@ -1,0 +1,44 @@
+{
+  "$schema": "./.nx/installation/node_modules/nx/schemas/nx-schema.json",
+  "installation": {
+    "version": "24.0.6",
+    "plugins": {
+      "@nx/dotnet": "24.0.6"
+    }
+  },
+  "plugins": [
+    {
+      "plugin": "@nx/dotnet",
+      "options": {
+        "restore": true
+      }
+    }
+  ],
+  "analytics": false,
+  "namedInputs": {
+    "default": [
+      "{projectRoot}/**/*"
+    ],
+    "production": [
+      "default",
+      "!{projectRoot}/**/*.Tests/**/*",
+      "!{projectRoot}/**/bin/**/*",
+      "!{projectRoot}/**/obj/**/*"
+    ]
+  },
+  "targetDefaults": {
+    "build": {
+      "cache": true,
+      "dependsOn": [
+        "restore",
+        "^build"
+      ]
+    },
+    "test": {
+      "cache": true
+    },
+    "pack": {
+      "cache": true
+    }
+  }
+}

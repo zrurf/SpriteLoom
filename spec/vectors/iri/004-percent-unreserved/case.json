@@ -1,0 +1,6 @@
+{
+  "name": "iri.normalize.percent-unreserved",
+  "kind": "iri.normalize",
+  "input": { "iri": "frame://heroes/a%31" },
+  "expected": { "iri": "frame://heroes/a1" }
+}
