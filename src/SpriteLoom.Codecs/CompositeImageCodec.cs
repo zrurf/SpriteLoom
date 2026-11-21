@@ -73,6 +73,10 @@ public sealed class CompositeImageCodec : IImageCodec
             {
                 return codec.Encode(image, format, quality);
             }
+            catch (PixelFormatException)
+            {
+                throw;
+            }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
                 last = exception;

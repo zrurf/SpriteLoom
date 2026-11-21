@@ -41,6 +41,18 @@ public sealed class RasterCodecTests
     }
 
     [Fact]
+    public void Default_codec_preserves_format_errors()
+    {
+        var codec = ImageCodecs.CreateDefault();
+        var image = CreateImage(128);
+
+        var exception = Assert.Throws<PixelFormatException>(
+            () => codec.Encode(image, "jpeg", 90));
+
+        Assert.Equal("SL3010", exception.Code);
+    }
+
+    [Fact]
     public void Jpeg_rejects_transparency()
     {
         var codec = new SkiaImageCodec();
