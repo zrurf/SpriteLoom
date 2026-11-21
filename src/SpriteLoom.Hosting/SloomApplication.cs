@@ -24,6 +24,12 @@ public sealed class SloomApplication
     public static SloomApplication Load(string configPath) =>
         new(ProjectConfigLoader.Load(configPath), ImageCodecs.CreateDefault());
 
+    public static SloomApplication FromConfig(ProjectConfig config)
+    {
+        ArgumentNullException.ThrowIfNull(config);
+        return new SloomApplication(config, ImageCodecs.CreateDefault());
+    }
+
     public IReadOnlyList<Diagnostic> Validate()
     {
         var diagnostics = new List<Diagnostic>();

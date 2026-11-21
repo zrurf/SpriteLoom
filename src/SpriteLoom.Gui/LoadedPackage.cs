@@ -2,22 +2,27 @@ using System.Text.Json;
 using Avalonia;
 using Avalonia.Media.Imaging;
 using SpriteLoom.Bundle;
+using SpriteLoom.Model.Serialization;
 
 namespace SpriteLoom.Gui;
 
 internal sealed class LoadedPackage : IDisposable
 {
     private readonly IReadOnlyDictionary<string, byte[]> _files;
+    private readonly Dictionary<string, byte[]> _jsonFiles = new(StringComparer.Ordinal);
     private readonly JsonDocument _manifest;
     private readonly List<PageInfo> _pages;
     private readonly List<JsonElement> _records;
     private readonly List<int> _toRecord;
     private readonly List<string> _uris;
     private readonly Dictionary<int, Bitmap> _pageBitmaps = [];
+    private readonly object _pageBitmapLock = new();
+    private bool _disposed;
 
     private LoadedPackage(
         IReadOnlyDictionary<string, byte[]> files,
         JsonDocument manifest,
+        string manifestFormat,
         List<PageInfo> pages,
         List<JsonElement> records,
         List<int> toRecord,
@@ -25,11 +30,28 @@ internal sealed class LoadedPackage : IDisposable
     {
         _files = files;
         _manifest = manifest;
+        ManifestFormat = manifestFormat;
+        ManifestText = JsonSerializer.Serialize(
+            manifest.RootElement,
+            new JsonSerializerOptions { WriteIndented = true });
         _pages = pages;
         _records = records;
         _toRecord = toRecord;
         _uris = uris;
     }
+
+    public string ManifestFormat { get; }
+
+    public string ManifestText { get; }
+
+    public string PackageId =>
+        _manifest.RootElement.GetProperty("package").GetProperty("id").GetString() ?? string.Empty;
+
+    public int PageCount => _pages.Count;
+
+    public int FrameCount => _records.Count;
+
+    public int AnimationCount => _manifest.RootElement.GetProperty("animations").GetArrayLength();
 
     public static LoadedPackage Open(string path)
     {
@@ -46,9 +68,7 @@ internal sealed class LoadedPackage : IDisposable
                 files[name] = bytes;
             }
 
-            manifestPath = files.ContainsKey("manifest.json")
-                ? "manifest.json"
-                : throw new InvalidDataException("Bundle has no JSON manifest.");
+            manifestPath = FindManifest(files);
         }
         else
         {
@@ -62,14 +82,18 @@ internal sealed class LoadedPackage : IDisposable
 
             manifestPath = File.Exists(fullPath)
                 ? Path.GetRelativePath(root, fullPath).Replace('\\', '/')
-                : "manifest.json";
+                : FindManifest(files);
         }
 
-        if (!files.TryGetValue(manifestPath, out var manifestBytes))
+        if (!files.ContainsKey(manifestPath))
         {
             throw new FileNotFoundException("Manifest not found.", manifestPath);
         }
 
+        var isCbor = manifestPath.EndsWith(".cbor", StringComparison.OrdinalIgnoreCase);
+        var manifestBytes = isCbor
+            ? CborJsonConverter.ToJson(files[manifestPath])
+            : files[manifestPath];
         var manifest = JsonDocument.Parse(manifestBytes);
         var rootElement = manifest.RootElement;
 
@@ -87,7 +111,7 @@ internal sealed class LoadedPackage : IDisposable
         foreach (var page in rootElement.GetProperty("pages").EnumerateArray())
         {
             var containerPath = page.GetProperty("container").GetString()!;
-            using var container = JsonDocument.Parse(files[containerPath]);
+            using var container = JsonDocument.Parse(ReadJsonFile(files, containerPath));
             var stored = container.RootElement.GetProperty("stored")
                 .EnumerateArray()
                 .Select(value =>
@@ -123,7 +147,53 @@ internal sealed class LoadedPackage : IDisposable
             .Select(value => value == uint.MaxValue ? -1 : (int)value)
             .ToList();
 
-        return new LoadedPackage(files, manifest, pages, records, toRecord, uris);
+        return new LoadedPackage(
+            files,
+            manifest,
+            isCbor ? "CBOR" : "JSON",
+            pages,
+            records,
+            toRecord,
+            uris);
+    }
+
+    private static string FindManifest(IReadOnlyDictionary<string, byte[]> files)
+    {
+        if (files.ContainsKey("manifest.json"))
+        {
+            return "manifest.json";
+        }
+
+        if (files.ContainsKey("manifest.cbor"))
+        {
+            return "manifest.cbor";
+        }
+
+        throw new FileNotFoundException("Package has no manifest.json or manifest.cbor.");
+    }
+
+    private static byte[] ReadJsonFile(IReadOnlyDictionary<string, byte[]> files, string path)
+    {
+        if (!files.TryGetValue(path, out var bytes))
+        {
+            throw new FileNotFoundException("Package file not found.", path);
+        }
+
+        return path.EndsWith(".cbor", StringComparison.OrdinalIgnoreCase)
+            ? CborJsonConverter.ToJson(bytes)
+            : bytes;
+    }
+
+    private byte[] ReadJson(string path)
+    {
+        if (_jsonFiles.TryGetValue(path, out var cached))
+        {
+            return cached;
+        }
+
+        var bytes = ReadJsonFile(_files, path);
+        _jsonFiles[path] = bytes;
+        return bytes;
     }
 
     public IReadOnlyList<string> AnimationUris =>
@@ -144,7 +214,7 @@ internal sealed class LoadedPackage : IDisposable
         }
 
         var file = reference.GetProperty("file").GetString()!;
-        using var document = JsonDocument.Parse(_files[file]);
+        using var document = JsonDocument.Parse(ReadJson(file));
         var frames = new List<string>();
 
         foreach (var frame in document.RootElement.GetProperty("frames").EnumerateArray())
@@ -154,6 +224,15 @@ internal sealed class LoadedPackage : IDisposable
                 : frame.GetString()!);
         }
 
+        var events = document.RootElement.TryGetProperty("events", out var eventArray)
+            ? eventArray
+                .EnumerateArray()
+                .Select(value => new AnimationEventInfo(
+                    value.GetProperty("frame").GetInt32(),
+                    value.GetProperty("kind").GetString() ?? string.Empty))
+                .ToArray()
+            : [];
+
         return new AnimationInfo(
             uri,
             frames,
@@ -162,7 +241,10 @@ internal sealed class LoadedPackage : IDisposable
                 .Select(value => value.GetInt32())
                 .ToList(),
             document.RootElement.GetProperty("loop").GetBoolean(),
-            document.RootElement.GetProperty("playback").GetString() ?? "forward");
+            document.RootElement.GetProperty("playback").GetString() ?? "forward")
+        {
+            Events = events
+        };
     }
 
     public FrameInfo GetFrame(string uri)
@@ -197,29 +279,56 @@ internal sealed class LoadedPackage : IDisposable
             offset[1].GetInt32());
     }
 
+    public bool TryGetPageBitmap(int page, out Bitmap? bitmap)
+    {
+        lock (_pageBitmapLock)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return _pageBitmaps.TryGetValue(page, out bitmap);
+        }
+    }
+
     public Bitmap GetPageBitmap(int page)
     {
-        if (_pageBitmaps.TryGetValue(page, out var cached))
+        lock (_pageBitmapLock)
         {
-            return cached;
-        }
+            ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var info = _pages[page];
-        var variant = info.Variants.FirstOrDefault(candidate => candidate.Id is "png" or "webp")
-            ?? info.Variants.First(candidate => !candidate.File.EndsWith(".ktx2", StringComparison.OrdinalIgnoreCase));
-        var bitmap = new Bitmap(new MemoryStream(_files[variant.File]));
-        _pageBitmaps[page] = bitmap;
-        return bitmap;
+            if (_pageBitmaps.TryGetValue(page, out var cached))
+            {
+                return cached;
+            }
+
+            var info = _pages[page];
+            var variant = info.Variants.FirstOrDefault(candidate => candidate.Id is "png" or "webp")
+                ?? info.Variants.FirstOrDefault(
+                    candidate => !candidate.File.EndsWith(".ktx2", StringComparison.OrdinalIgnoreCase))
+                ?? throw new InvalidDataException($"Page {page} has no viewable raster variant.");
+            var bitmap = new Bitmap(new MemoryStream(_files[variant.File]));
+            _pageBitmaps[page] = bitmap;
+            return bitmap;
+        }
     }
 
     public void Dispose()
     {
-        foreach (var bitmap in _pageBitmaps.Values)
+        lock (_pageBitmapLock)
         {
-            bitmap.Dispose();
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+
+            foreach (var bitmap in _pageBitmaps.Values)
+            {
+                bitmap.Dispose();
+            }
+
+            _pageBitmaps.Clear();
         }
 
-        _pageBitmaps.Clear();
         _manifest.Dispose();
     }
 
@@ -247,5 +356,18 @@ public sealed record AnimationInfo(
     bool Loop,
     string Playback)
 {
+    public IReadOnlyList<AnimationEventInfo> Events { get; init; } = [];
+
     public int TotalDurationMs => DurationsMs.Sum();
+}
+
+public sealed record AnimationEventInfo(int Frame, string Kind);
+
+public sealed record TimelineFrameInfo(int Index, int DurationMs, string EventText)
+{
+    public string Label => $"#{Index + 1}";
+
+    public string DurationLabel => $"{DurationMs} ms";
+
+    public bool HasEvent => EventText.Length > 0;
 }

@@ -5,6 +5,9 @@
     <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="SpriteLoom.Gui.Tests" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Avalonia.Desktop" />
     <PackageReference Include="Avalonia.Fonts.Inter" />
@@ -16,5 +19,7 @@
     <ProjectReference Include="../SpriteLoom.Model/SpriteLoom.Model.csproj" />
     <ProjectReference Include="../SpriteLoom.Bundle/SpriteLoom.Bundle.csproj" />
     <ProjectReference Include="../SpriteLoom.Hosting/SpriteLoom.Hosting.csproj" />
+    <ProjectReference Include="../SpriteLoom.Pipeline/SpriteLoom.Pipeline.csproj" />
+    <ProjectReference Include="../SpriteLoom.Textures/SpriteLoom.Textures.csproj" />
   </ItemGroup>
 </Project>

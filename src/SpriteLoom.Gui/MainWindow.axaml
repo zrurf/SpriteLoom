@@ -3,67 +3,480 @@
         xmlns:controls="using:SpriteLoom.Gui.Controls"
         x:Class="SpriteLoom.Gui.MainWindow"
         Title="SpriteLoom"
-        Width="1280"
-        Height="820"
+        Width="1200"
+        Height="800"
         MinWidth="960"
-        MinHeight="640">
+        MinHeight="640"
+        WindowStartupLocation="CenterScreen">
+  <Window.KeyBindings>
+    <KeyBinding Gesture="Ctrl+O" Command="{Binding OpenProjectCommand}" />
+    <KeyBinding Gesture="Ctrl+S" Command="{Binding SaveConfigCommand}" />
+    <KeyBinding Gesture="Ctrl+Z" Command="{Binding UndoCommand}" />
+    <KeyBinding Gesture="Ctrl+Y" Command="{Binding RedoCommand}" />
+    <KeyBinding Gesture="F5" Command="{Binding PackCommand}" />
+  </Window.KeyBindings>
+
+  <Window.Styles>
+    <Style Selector="TextBlock.label">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Foreground" Value="#777777" />
+      <Setter Property="Margin" Value="0,4,0,0" />
+    </Style>
+    <Style Selector="TextBlock.section">
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Margin" Value="0,10,0,2" />
+    </Style>
+    <Style Selector="TextBox.field">
+      <Setter Property="Margin" Value="0,2,0,2" />
+    </Style>
+  </Window.Styles>
+
   <Grid RowDefinitions="Auto,*,Auto" Margin="8">
-    <StackPanel Orientation="Horizontal" Spacing="6">
-      <Button Content="Open package" Command="{Binding OpenPackageCommand}" />
-      <Button Content="Pack" Command="{Binding PackCommand}" />
-      <Button Content="Cancel" Command="{Binding CancelCommand}" />
-      <Separator Width="1" Margin="8,0" />
-      <Button Content="Play" Command="{Binding PlayPauseCommand}" />
-      <Button Content="Previous" Command="{Binding PreviousFrameCommand}" />
-      <Button Content="Next" Command="{Binding NextFrameCommand}" />
-      <TextBlock Text="{Binding Status}" VerticalAlignment="Center" Margin="12,0,0,0" />
-    </StackPanel>
-
-    <Grid Grid.Row="1" ColumnDefinitions="240,*,300" Margin="0,8">
-      <Border BorderBrush="#33000000" BorderThickness="1" CornerRadius="4" Padding="4">
-        <DockPanel>
-          <TextBlock DockPanel.Dock="Top" Text="Animations" FontWeight="SemiBold" Margin="4" />
-          <ListBox ItemsSource="{Binding Animations}"
-                   SelectedItem="{Binding SelectedAnimation}"
-                   DisplayMemberBinding="{Binding Uri}" />
-        </DockPanel>
-      </Border>
-
-      <Grid Grid.Column="1" ColumnDefinitions="*,*" Margin="8,0">
-        <Border BorderBrush="#33000000" BorderThickness="1" CornerRadius="4" Padding="4">
-          <DockPanel>
-            <TextBlock DockPanel.Dock="Top" Text="Atlas" FontWeight="SemiBold" Margin="4" />
-            <controls:AtlasPreview Bitmap="{Binding AtlasBitmap}"
-                                   Highlight="{Binding Highlight}" />
-          </DockPanel>
-        </Border>
-        <Border Grid.Column="1" BorderBrush="#33000000" BorderThickness="1" CornerRadius="4" Padding="4" Margin="8,0,0,0">
-          <DockPanel>
-            <TextBlock DockPanel.Dock="Top" Text="Frame" FontWeight="SemiBold" Margin="4" />
-            <controls:FramePreview Bitmap="{Binding FrameBitmap}"
-                                   Source="{Binding FrameSource}"
-                                   Destination="{Binding FrameDestination}"
-                                   OriginWidth="{Binding OriginWidth}"
-                                   OriginHeight="{Binding OriginHeight}" />
-          </DockPanel>
-        </Border>
-      </Grid>
-
-      <StackPanel Grid.Column="2" Spacing="6">
-        <TextBlock Text="Project" FontWeight="SemiBold" />
-        <TextBox Text="{Binding ProjectPath}" PlaceholderText="sloom.toml or project directory" />
-        <TextBlock Text="Package" FontWeight="SemiBold" Margin="0,8,0,0" />
-        <TextBox Text="{Binding PackagePath}" PlaceholderText="build/heroes or heroes.slb" />
-        <Button Content="Load package" Command="{Binding OpenPackageCommand}" />
-        <TextBlock Text="{Binding FrameLabel}" Margin="0,12,0,0" />
+    <Grid ColumnDefinitions="Auto,240,*,Auto" ColumnSpacing="6">
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <Button Content="Open project" Command="{Binding OpenProjectCommand}" />
+        <Button Content="Save config" Command="{Binding SaveConfigCommand}" />
+        <Button Content="Pack" Command="{Binding PackCommand}" />
+        <Button Content="Cancel" Command="{Binding CancelCommand}" />
+        <Separator Width="1" Margin="4,0" />
+        <Button Content="Undo" Command="{Binding UndoCommand}" />
+        <Button Content="Redo" Command="{Binding RedoCommand}" />
       </StackPanel>
+      <TextBox Grid.Column="1" Text="{Binding ProjectPath}" PlaceholderText="sloom.toml or project directory" />
+      <TextBlock Grid.Column="2"
+                 Text="{Binding Status}"
+                 VerticalAlignment="Center"
+                 TextTrimming="CharacterEllipsis"
+                 Margin="8,0" />
+      <TextBlock Grid.Column="3"
+                 Text="{Binding ProjectCaption}"
+                 FontWeight="SemiBold"
+                 VerticalAlignment="Center" />
     </Grid>
 
-    <Slider Grid.Row="2"
-            Minimum="0"
-            Maximum="{Binding MaxFrameIndex}"
-            Value="{Binding FrameIndex}"
-            TickFrequency="1"
-            IsSnapToTickEnabled="True" />
+    <Grid Grid.Row="1" ColumnDefinitions="270,*,330" Margin="0,8">
+      <Border BorderBrush="#33000000" BorderThickness="1" CornerRadius="4" Padding="4">
+        <TabControl>
+          <TabItem Header="Sources">
+            <ScrollViewer>
+              <StackPanel Spacing="2">
+                <ListBox ItemsSource="{Binding Settings.Sources}"
+                         SelectedItem="{Binding SelectedSource}"
+                         MaxHeight="220">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate>
+                      <StackPanel>
+                        <TextBlock Text="{Binding Id}" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding Path}"
+                                   FontSize="11"
+                                   Foreground="#777777"
+                                   TextTrimming="CharacterEllipsis" />
+                      </StackPanel>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+
+                <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,6,0,0">
+                  <Button Content="Add" Command="{Binding AddSourceCommand}" />
+                  <Button Content="Remove" Command="{Binding RemoveSourceCommand}" />
+                  <Button Content="Up" Command="{Binding MoveSourceUpCommand}" />
+                  <Button Content="Down" Command="{Binding MoveSourceDownCommand}" />
+                </StackPanel>
+
+                <TextBlock Classes="label" Text="Id" />
+                <TextBox Classes="field" Text="{Binding SelectedSource.Id}" />
+                <TextBlock Classes="label" Text="Kind" />
+                <ComboBox ItemsSource="{Binding SourceKinds}"
+                          SelectedItem="{Binding SelectedSource.Kind}" />
+                <TextBlock Classes="label" Text="Path" />
+                <TextBox Classes="field" Text="{Binding SelectedSource.Path}" />
+                <TextBlock Classes="label" Text="Image (TexturePacker)" />
+                <TextBox Classes="field" Text="{Binding SelectedSource.Image}" />
+                <TextBlock Classes="label" Text="Order" />
+                <ComboBox ItemsSource="{Binding SourceOrders}"
+                          SelectedItem="{Binding SelectedSource.Order}" />
+                <TextBlock Classes="label" Text="Frame duration (ms)" />
+                <NumericUpDown Value="{Binding SelectedSource.FrameDurationMs}"
+                               Minimum="1"
+                               Maximum="60000"
+                               Increment="10"
+                               FormatString="0" />
+              </StackPanel>
+            </ScrollViewer>
+          </TabItem>
+
+          <TabItem Header="Animations">
+            <ListBox ItemsSource="{Binding Animations}"
+                     SelectedItem="{Binding SelectedAnimation}">
+              <ListBox.ItemTemplate>
+                <DataTemplate>
+                  <StackPanel>
+                    <TextBlock Text="{Binding Uri}" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding TotalDurationMs, StringFormat='{}{0} ms'}"
+                               FontSize="11"
+                               Foreground="#777777" />
+                  </StackPanel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </TabItem>
+
+          <TabItem Header="Capabilities">
+            <ScrollViewer>
+              <StackPanel Spacing="4">
+                <TextBlock Classes="section" Text="Image formats" />
+                <ItemsControl ItemsSource="{Binding Capabilities.ImageFormats}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <WrapPanel />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Border Background="#0F000000"
+                              BorderBrush="#22000000"
+                              BorderThickness="1"
+                              CornerRadius="3"
+                              Padding="5,2"
+                              Margin="0,2,4,2">
+                        <TextBlock Text="{Binding}" FontSize="11" />
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <TextBlock Classes="section" Text="Native encoder" />
+                <TextBlock Text="{Binding NativeEncoderStatus}" />
+
+                <TextBlock Classes="section" Text="Texture targets" />
+                <ItemsControl ItemsSource="{Binding Capabilities.TextureTargets}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Grid ColumnDefinitions="*,Auto" Margin="0,1">
+                        <TextBlock Text="{Binding Id}" FontSize="11" />
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding Status}"
+                                   FontSize="11"
+                                   Foreground="#777777" />
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <TextBlock Classes="section" Text="Plugins" />
+                <TextBlock TextWrapping="Wrap"
+                           FontSize="11"
+                           Foreground="#777777"
+                           Text="External plugins are not enabled in this build." />
+              </StackPanel>
+            </ScrollViewer>
+          </TabItem>
+        </TabControl>
+      </Border>
+
+      <Grid Grid.Column="1" RowDefinitions="Auto,*,Auto,Auto" Margin="8,0">
+        <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                      VerticalScrollBarVisibility="Disabled"
+                      MaxHeight="120">
+          <ListBox ItemsSource="{Binding PipelineNodes}"
+                   SelectedItem="{Binding SelectedPass}"
+                   BorderThickness="0"
+                   Background="Transparent"
+                   ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                   ScrollViewer.VerticalScrollBarVisibility="Disabled">
+          <ListBox.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Orientation="Horizontal" />
+            </ItemsPanelTemplate>
+          </ListBox.ItemsPanel>
+          <ListBox.ItemTemplate>
+            <DataTemplate>
+              <StackPanel Orientation="Horizontal">
+                <Border Background="#0F000000"
+                        BorderBrush="#22000000"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        Padding="8,6"
+                        Width="176">
+                  <StackPanel>
+                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding Detail}"
+                               FontSize="11"
+                               TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding Inputs}"
+                               FontSize="10"
+                               Foreground="#888888"
+                               TextTrimming="CharacterEllipsis" />
+                  </StackPanel>
+                </Border>
+                <TextBlock Text="→"
+                           IsVisible="{Binding !IsLast}"
+                           VerticalAlignment="Center"
+                           Margin="4,0" />
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+          </ListBox>
+        </ScrollViewer>
+
+        <TabControl Grid.Row="1" Margin="0,6,0,0">
+          <TabItem Header="Preview">
+            <Grid ColumnDefinitions="*,*" Margin="0,4,0,0">
+              <Border BorderBrush="#33000000" BorderThickness="1" CornerRadius="4" Padding="4">
+                <DockPanel>
+                  <TextBlock DockPanel.Dock="Top" Text="Atlas" FontWeight="SemiBold" Margin="4" />
+                  <controls:AtlasPreview Bitmap="{Binding AtlasBitmap}"
+                                         Highlight="{Binding Highlight}" />
+                </DockPanel>
+              </Border>
+              <Border Grid.Column="1"
+                      BorderBrush="#33000000"
+                      BorderThickness="1"
+                      CornerRadius="4"
+                      Padding="4"
+                      Margin="8,0,0,0">
+                <DockPanel>
+                  <TextBlock DockPanel.Dock="Top" Text="Frame" FontWeight="SemiBold" Margin="4" />
+                  <controls:FramePreview Bitmap="{Binding FrameBitmap}"
+                                         Source="{Binding FrameSource}"
+                                         Destination="{Binding FrameDestination}"
+                                         OriginWidth="{Binding OriginWidth}"
+                                         OriginHeight="{Binding OriginHeight}" />
+                </DockPanel>
+              </Border>
+            </Grid>
+          </TabItem>
+
+          <TabItem Header="Manifest">
+            <Grid RowDefinitions="Auto,Auto,*" Margin="0,4,0,0">
+              <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
+                <TextBox Text="{Binding PackagePath}" PlaceholderText="build/package or package.slb" />
+                <Button Grid.Column="1" Content="Load package" Command="{Binding OpenPackageCommand}" />
+                <TextBlock Grid.Column="2"
+                           Text="{Binding ManifestFormat}"
+                           VerticalAlignment="Center"
+                           FontWeight="SemiBold" />
+              </Grid>
+              <TextBlock Grid.Row="1"
+                         Text="{Binding PackageSummary}"
+                         Margin="0,6"
+                         Foreground="#777777" />
+              <TextBox Grid.Row="2"
+                       Text="{Binding ManifestText}"
+                       IsReadOnly="True"
+                       AcceptsReturn="True"
+                       TextWrapping="NoWrap"
+                       FontFamily="Consolas,monospace"
+                       FontSize="12" />
+            </Grid>
+          </TabItem>
+        </TabControl>
+
+        <ListBox Grid.Row="2"
+                 ItemsSource="{Binding TimelineFrames}"
+                 SelectedIndex="{Binding FrameIndex, Mode=TwoWay}"
+                 BorderThickness="0"
+                 Background="Transparent"
+                 MaxHeight="64"
+                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                 ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                 Margin="0,6,0,0">
+          <ListBox.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Orientation="Horizontal" />
+            </ItemsPanelTemplate>
+          </ListBox.ItemsPanel>
+          <ListBox.ItemTemplate>
+            <DataTemplate>
+              <Border BorderBrush="#22000000"
+                      BorderThickness="1"
+                      CornerRadius="3"
+                      Padding="6,3"
+                      Margin="0,0,4,0"
+                      MinWidth="52">
+                <StackPanel>
+                  <TextBlock Text="{Binding Label}" FontWeight="SemiBold" FontSize="11" />
+                  <TextBlock Text="{Binding DurationLabel}" FontSize="10" Foreground="#777777" />
+                  <TextBlock Text="{Binding EventText}"
+                             IsVisible="{Binding HasEvent}"
+                             FontSize="10"
+                             Foreground="#B36B00"
+                             TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+
+        <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Margin="0,6,0,0">
+          <Button Content="Previous" Command="{Binding PreviousFrameCommand}" />
+          <Slider Grid.Column="1"
+                  Minimum="0"
+                  Maximum="{Binding MaxFrameIndex}"
+                  Value="{Binding FrameIndex}"
+                  TickFrequency="1"
+                  IsSnapToTickEnabled="True"
+                  VerticalAlignment="Center" />
+          <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+            <Button Content="Play" Command="{Binding PlayPauseCommand}" />
+            <Button Content="Next" Command="{Binding NextFrameCommand}" />
+            <TextBlock Text="{Binding FrameLabel}" VerticalAlignment="Center" />
+          </StackPanel>
+        </Grid>
+      </Grid>
+
+      <Border Grid.Column="2"
+              BorderBrush="#33000000"
+              BorderThickness="1"
+              CornerRadius="4"
+              Padding="6">
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Top" Text="Inspector" FontWeight="SemiBold" Margin="2" />
+          <ScrollViewer>
+            <StackPanel>
+              <StackPanel IsVisible="{Binding ShowImportInspector}">
+                <TextBlock Classes="section" Text="Import" />
+                <TextBlock Classes="label" Text="Package id" />
+                <TextBox Classes="field" Text="{Binding Settings.PackageId}" />
+                <TextBlock Classes="label" Text="Display name" />
+                <TextBox Classes="field" Text="{Binding Settings.DisplayName}" />
+                <TextBlock Classes="label" Text="Frame pattern" />
+                <TextBox Classes="field" Text="{Binding Settings.FramePattern}" />
+              </StackPanel>
+
+              <StackPanel IsVisible="{Binding ShowTrimInspector}">
+                <TextBlock Classes="section" Text="Trim" />
+                <TextBlock Classes="label" Text="Alpha threshold" />
+                <NumericUpDown Value="{Binding Settings.TrimThreshold}"
+                               Minimum="0"
+                               Maximum="255"
+                               Increment="1"
+                               FormatString="0" />
+              </StackPanel>
+
+              <StackPanel IsVisible="{Binding ShowPackInspector}">
+                <TextBlock Classes="section" Text="Pack" />
+                <TextBlock Classes="label" Text="Packer" />
+                <ComboBox ItemsSource="{Binding Packers}"
+                          SelectedItem="{Binding Settings.Packer}" />
+                <TextBlock Classes="label" Text="Maximum width" />
+                <NumericUpDown Value="{Binding Settings.MaxWidth}"
+                               Minimum="4"
+                               Maximum="16384"
+                               Increment="128"
+                               FormatString="0" />
+                <TextBlock Classes="label" Text="Maximum height" />
+                <NumericUpDown Value="{Binding Settings.MaxHeight}"
+                               Minimum="4"
+                               Maximum="16384"
+                               Increment="128"
+                               FormatString="0" />
+                <TextBlock Classes="label" Text="Padding" />
+                <NumericUpDown Value="{Binding Settings.Padding}"
+                               Minimum="0"
+                               Maximum="256"
+                               Increment="1"
+                               FormatString="0" />
+                <TextBlock Classes="label" Text="Base alignment" />
+                <NumericUpDown Value="{Binding Settings.PackAlign}"
+                               Minimum="4"
+                               Maximum="256"
+                               Increment="4"
+                               FormatString="0" />
+                <TextBlock Classes="label"
+                           Text="{Binding Settings.EffectivePackAlignment, StringFormat='Effective alignment: {0}'}" />
+                <CheckBox Content="Power of two" IsChecked="{Binding Settings.Pow2}" />
+                <CheckBox Content="Allow rotation" IsChecked="{Binding Settings.Rotate}" />
+              </StackPanel>
+
+              <StackPanel IsVisible="{Binding ShowBleedInspector}">
+                <TextBlock Classes="section" Text="Bleed" />
+                <TextBlock Classes="label" Text="Extrude (px)" />
+                <NumericUpDown Value="{Binding Settings.Extrude}"
+                               Minimum="0"
+                               Maximum="64"
+                               Increment="1"
+                               FormatString="0" />
+                <CheckBox Content="Alpha dilate" IsChecked="{Binding Settings.AlphaDilate}" />
+              </StackPanel>
+
+              <StackPanel IsVisible="{Binding ShowEncodeInspector}">
+                <TextBlock Classes="section" Text="Raster encode" />
+                <TextBlock Classes="label" Text="Formats" />
+                <TextBox Classes="field"
+                         Text="{Binding Settings.RasterFormats}"
+                         PlaceholderText="png, webp" />
+                <TextBlock Classes="label" Text="Quality" />
+                <NumericUpDown Value="{Binding Settings.RasterQuality}"
+                               Minimum="1"
+                               Maximum="100"
+                               Increment="1"
+                               FormatString="0" />
+              </StackPanel>
+
+              <StackPanel IsVisible="{Binding ShowTextureInspector}">
+                <TextBlock Classes="section" Text="Texture encode" />
+                <TextBlock Classes="label" Text="Targets" />
+                <TextBox Classes="field"
+                         Text="{Binding Settings.TextureTargets}"
+                         PlaceholderText="ktx2-astc4x4, ktx2-bc7" />
+                <TextBlock Classes="label" Text="Pixel format" />
+                <ComboBox ItemsSource="{Binding PixelFormatNames}"
+                          SelectedItem="{Binding Settings.TexturePixelFormat}" />
+                <TextBlock Classes="label" Text="Dither" />
+                <ComboBox ItemsSource="{Binding DitherNames}"
+                          SelectedItem="{Binding Settings.TextureDither}" />
+                <TextBlock Classes="label" Text="Quality" />
+                <ComboBox ItemsSource="{Binding TextureQualityNames}"
+                          SelectedItem="{Binding Settings.TextureQuality}" />
+                <CheckBox Content="Generate mipmaps" IsChecked="{Binding Settings.Mipmaps}" />
+              </StackPanel>
+
+              <StackPanel IsVisible="{Binding ShowAnimationsInspector}">
+                <TextBlock Classes="section" Text="Animations" />
+                <ItemsControl ItemsSource="{Binding Settings.Animations}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <StackPanel Margin="0,2">
+                        <TextBlock Text="{Binding Uri}" FontSize="11" />
+                        <TextBlock Text="{Binding Source, StringFormat='source: {0}'}"
+                                   FontSize="10"
+                                   Foreground="#777777" />
+                      </StackPanel>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+
+              <StackPanel IsVisible="{Binding ShowManifestInspector}">
+                <TextBlock Classes="section" Text="Manifest" />
+                <TextBlock Classes="label" Text="Format" />
+                <ComboBox ItemsSource="{Binding ManifestFormats}"
+                          SelectedItem="{Binding Settings.ManifestFormatName}" />
+              </StackPanel>
+
+              <StackPanel IsVisible="{Binding ShowPackageInspector}">
+                <TextBlock Classes="section" Text="Package" />
+                <TextBlock Classes="label" Text="Kind" />
+                <ComboBox ItemsSource="{Binding OutputKinds}"
+                          SelectedItem="{Binding Settings.OutputKind}" />
+                <TextBlock Classes="label" Text="Output path" />
+                <TextBox Classes="field" Text="{Binding Settings.OutputPath}" />
+                <TextBlock Classes="label" Text="Signing key" />
+                <TextBox Classes="field"
+                         Text="{Binding Settings.SigningKeyPath}"
+                         PlaceholderText="optional private key" />
+              </StackPanel>
+
+              <StackPanel IsVisible="{Binding ShowEmptyInspector}" Margin="0,12">
+                <TextBlock Text="No configurable parameters."
+                           Foreground="#777777"
+                           TextWrapping="Wrap" />
+              </StackPanel>
+            </StackPanel>
+          </ScrollViewer>
+        </DockPanel>
+      </Border>
+    </Grid>
   </Grid>
 </Window>

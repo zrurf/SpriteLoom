@@ -20,6 +20,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/SpriteLoom.Bundle.Tests/SpriteLoom.Bundle.Tests.csproj" />
     <Project Path="tests/SpriteLoom.Foundation.Tests/SpriteLoom.Foundation.Tests.csproj" />
+    <Project Path="tests/SpriteLoom.Gui.Tests/SpriteLoom.Gui.Tests.csproj" />
     <Project Path="tests/SpriteLoom.Imaging.Tests/SpriteLoom.Imaging.Tests.csproj" />
     <Project Path="tests/SpriteLoom.Integration.Tests/SpriteLoom.Integration.Tests.csproj" />
     <Project Path="tests/SpriteLoom.Model.Tests/SpriteLoom.Model.Tests.csproj" />

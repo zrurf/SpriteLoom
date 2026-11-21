@@ -53,7 +53,9 @@ internal static class LayerRules
                 "SpriteLoom.Foundation",
                 "SpriteLoom.Model",
                 "SpriteLoom.Bundle",
-                "SpriteLoom.Hosting")
+                "SpriteLoom.Hosting",
+                "SpriteLoom.Pipeline",
+                "SpriteLoom.Textures")
         };
 
     private static IReadOnlySet<string> Set(params string[] values) =>

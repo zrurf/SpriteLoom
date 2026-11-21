@@ -15,4 +15,4 @@ SpriteLoom compiles sprite sources into a package that a runtime can load direct
 - [Pipeline](guides/pipeline.md): pass order, caching, watch mode, and MSBuild integration.
 - [Texture encoding](guides/textures.md): raster and GPU variant configuration.
 - [Flutter player](guides/flutter.md): loading and playing a package in Flutter.
-- [GUI editor](guides/gui.md): current Avalonia workspace and preview features.
+- [GUI editor](guides/gui.md): project editing, pipeline inspector, undo/redo, and package preview.
