@@ -74,9 +74,12 @@ internal sealed class PackageFiles
         {
             var relativePath = Path.GetRelativePath(root, path).Replace('\\', '/');
 
-            if (!relativePath.EndsWith(SencFile.Extension, StringComparison.OrdinalIgnoreCase))
+            var bytes = File.ReadAllBytes(path);
+
+            if (!relativePath.EndsWith(SencFile.Extension, StringComparison.OrdinalIgnoreCase) ||
+                !SencFile.HasMagic(bytes))
             {
-                files[relativePath] = File.ReadAllBytes(path);
+                files[relativePath] = bytes;
                 continue;
             }
 
@@ -86,9 +89,7 @@ internal sealed class PackageFiles
                     $"SL5022: Encrypted package file requires --decrypt-key: {relativePath}");
             }
 
-            files[relativePath[..^SencFile.Extension.Length]] = SencFile.Decrypt(
-                File.ReadAllBytes(path),
-                decryptionKey);
+            files[relativePath[..^SencFile.Extension.Length]] = SencFile.Decrypt(bytes, decryptionKey);
         }
 
         return files;
