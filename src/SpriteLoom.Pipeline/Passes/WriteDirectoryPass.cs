@@ -24,9 +24,24 @@ public sealed class WriteDirectoryPass : IPass
         var outputPath = PassParameters.GetString(context.Parameters, "outputPath");
         var outputKind = PassParameters.GetString(context.Parameters, "outputKind", "directory");
         var signingKeyPath = PassParameters.GetString(context.Parameters, "signingKeyPath", string.Empty);
+        var encryptionAlgorithm = PassParameters.GetString(context.Parameters, "encryptionAlgorithm", string.Empty);
+        var encryptionKeyPath = PassParameters.GetString(context.Parameters, "encryptionKeyPath", string.Empty);
+        var encryptionChunkSize = PassParameters.GetInt(
+            context.Parameters,
+            "encryptionChunkSize",
+            AeadChunker.DefaultChunkSize);
         var target = Path.GetFullPath(Path.Combine(context.BaseDirectory, outputPath));
         var signer = LoadSigner(context.BaseDirectory, signingKeyPath);
         var bundle = string.Equals(outputKind, "bundle", StringComparison.OrdinalIgnoreCase);
+        SymmetricKey? encryptionKey = null;
+        SymmetricAlgorithmKind encryptionKind = SymmetricAlgorithmKind.Aes256Gcm;
+
+        if (!string.IsNullOrWhiteSpace(encryptionAlgorithm))
+        {
+            encryptionKind = SymmetricAlgorithms.Parse(encryptionAlgorithm);
+            var keyPath = Path.GetFullPath(Path.Combine(context.BaseDirectory, encryptionKeyPath));
+            encryptionKey = SymmetricKey.Load(keyPath);
+        }
         var parent = Path.GetDirectoryName(target) ?? Directory.GetCurrentDirectory();
         Directory.CreateDirectory(parent);
 
@@ -36,11 +51,18 @@ public sealed class WriteDirectoryPass : IPass
         {
             if (bundle)
             {
-                WriteBundle(package, staging, signer);
+                WriteBundle(package, staging, signer, encryptionKey, encryptionKind, encryptionChunkSize);
             }
             else
             {
-                WriteDirectory(package, staging, signer, context.Cancellation);
+                WriteDirectory(
+                    package,
+                    staging,
+                    signer,
+                    encryptionKey,
+                    encryptionKind,
+                    encryptionChunkSize,
+                    context.Cancellation);
             }
 
             context.Cancellation.ThrowIfCancellationRequested();
@@ -59,20 +81,35 @@ public sealed class WriteDirectoryPass : IPass
             });
     }
 
-    private static void WriteBundle(BuildPackage package, string target, ISigner? signer)
+    private static void WriteBundle(
+        BuildPackage package,
+        string target,
+        ISigner? signer,
+        SymmetricKey? encryptionKey,
+        SymmetricAlgorithmKind encryptionKind,
+        int encryptionChunkSize)
     {
         var files = package.Files
             .OrderBy(pair => pair.Key, StringComparer.Ordinal)
             .Select(pair => new SlbFile(pair.Key, SlbKinds.Infer(pair.Key), pair.Value))
             .ToArray();
 
-        SlbWriter.WriteFile(files, target, new SlbWriteOptions { Signer = signer });
+        SlbWriter.WriteFile(files, target, new SlbWriteOptions
+        {
+            Signer = signer,
+            EncryptionKey = encryptionKey,
+            EncryptionAlgorithm = encryptionKind,
+            EncryptionChunkSize = encryptionChunkSize
+        });
     }
 
     private static void WriteDirectory(
         BuildPackage package,
         string target,
         ISigner? signer,
+        SymmetricKey? encryptionKey,
+        SymmetricAlgorithmKind encryptionKind,
+        int encryptionChunkSize,
         CancellationToken cancellation)
     {
         Directory.CreateDirectory(target);
@@ -80,7 +117,21 @@ public sealed class WriteDirectoryPass : IPass
         foreach (var (relativePath, bytes) in package.Files.OrderBy(pair => pair.Key, StringComparer.Ordinal))
         {
             cancellation.ThrowIfCancellationRequested();
-            var path = Path.Combine(target, relativePath.Replace('/', Path.DirectorySeparatorChar));
+            var storedPath = relativePath;
+            var storedBytes = bytes;
+
+            if (encryptionKey is not null)
+            {
+                storedPath += SencFile.Extension;
+                storedBytes = SencFile.Encrypt(
+                    bytes,
+                    encryptionKey,
+                    encryptionKind,
+                    encryptionChunkSize,
+                    DeriveSencPrefix(encryptionKey, relativePath, bytes));
+            }
+
+            var path = Path.Combine(target, storedPath.Replace('/', Path.DirectorySeparatorChar));
             var directory = Path.GetDirectoryName(path);
 
             if (!string.IsNullOrEmpty(directory))
@@ -88,13 +139,23 @@ public sealed class WriteDirectoryPass : IPass
                 Directory.CreateDirectory(directory);
             }
 
-            File.WriteAllBytes(path, bytes);
+            File.WriteAllBytes(path, storedBytes);
         }
 
         if (signer is not null)
         {
             DirectorySigner.Sign(target, signer);
         }
+    }
+
+    private static byte[] DeriveSencPrefix(SymmetricKey key, string path, byte[] content)
+    {
+        using var hash = System.Security.Cryptography.IncrementalHash.CreateHash(
+            System.Security.Cryptography.HashAlgorithmName.SHA256);
+        hash.AppendData(key.Bytes.Span);
+        hash.AppendData(System.Text.Encoding.UTF8.GetBytes(path));
+        hash.AppendData(content);
+        return hash.GetHashAndReset()[..SencFile.NoncePrefixStorage];
     }
 
     private static void Replace(string target, string staging, bool bundle)

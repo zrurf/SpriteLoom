@@ -16,7 +16,7 @@ public static class BundleDiagnostics
 
     public const string FileTruncated = "SL5020";
     public const string UnsupportedVersion = "SL5021";
-    public const string InvalidHeaderSize = "SL5022";
+    public const string KeyMissing = "SL5022";
     public const string HeaderCrcMismatch = "SL5023";
     public const string FileSizeMismatch = "SL5024";
     public const string FooterMismatch = "SL5025";
@@ -35,6 +35,11 @@ public static class BundleDiagnostics
     public const string HeaderTruncated = "SL5038";
     public const string HeaderMagicMismatch = "SL5039";
     public const string BlockEntryTruncated = "SL5040";
+    public const string UnsupportedEncryption = "SL5041";
+    public const string InvalidCryptoEntry = "SL5042";
+    public const string CryptoKeyMismatch = "SL5043";
+    public const string InvalidHeaderSize = "SL5044";
+    public const string EncryptionFailed = "SL5045";
 
     public static InvalidDataException Error(string code, string message) =>
         new($"{code}: {message}");

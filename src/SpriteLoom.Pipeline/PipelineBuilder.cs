@@ -158,7 +158,10 @@ public static class PipelineBuilder
             Parameters = Parameters(
                 ("outputPath", config.OutputPath),
                 ("outputKind", config.OutputKind),
-                ("signingKeyPath", config.SigningKeyPath ?? string.Empty))
+                ("signingKeyPath", config.SigningKeyPath ?? string.Empty),
+                ("encryptionAlgorithm", config.Encryption?.Algorithm ?? string.Empty),
+                ("encryptionKeyPath", config.Encryption?.KeyPath ?? string.Empty),
+                ("encryptionChunkSize", config.Encryption?.ChunkSize ?? 0))
         });
 
         return nodes;

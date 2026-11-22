@@ -168,3 +168,95 @@ public sealed class CliIntegrationTests
         }
     }
 }
+
+public sealed class CliEncryptionTests
+{
+    [Theory]
+    [InlineData("aes-256-gcm")]
+    [InlineData("xchacha20-poly1305")]
+    public async Task Keygen_encrypt_and_decrypt_files(string algorithm)
+    {
+        var root = Path.Combine(Path.GetTempPath(), "sloom-cli-enc-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+
+        try
+        {
+            var keyPath = Path.Combine(root, "asset.key");
+            var plainPath = Path.Combine(root, "plain.bin");
+            var encryptedPath = Path.Combine(root, "plain.bin.senc");
+            var decryptedPath = Path.Combine(root, "plain.out");
+            File.WriteAllBytes(plainPath, Enumerable.Range(0, 10_000).Select(value => (byte)value).ToArray());
+
+            Assert.Equal(0, await SloomCommandLine.RunAsync(
+                ["keygen", "--algorithm", "aes-256", "--out", keyPath],
+                new StringWriter(),
+                new StringWriter()));
+            Assert.True(File.Exists(keyPath));
+
+            Assert.Equal(0, await SloomCommandLine.RunAsync(
+                ["encrypt", plainPath, "--key", keyPath, "--algorithm", algorithm, "--chunk-size", "1024"],
+                new StringWriter(),
+                new StringWriter()));
+            Assert.True(File.Exists(encryptedPath));
+            Assert.NotEqual(File.ReadAllBytes(plainPath), File.ReadAllBytes(encryptedPath));
+
+            Assert.Equal(0, await SloomCommandLine.RunAsync(
+                ["decrypt", encryptedPath, "--key", keyPath, "--out", decryptedPath],
+                new StringWriter(),
+                new StringWriter()));
+            Assert.Equal(File.ReadAllBytes(plainPath), File.ReadAllBytes(decryptedPath));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Encrypt_requires_key_and_rejects_wrong_key()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "sloom-cli-enc-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+
+        try
+        {
+            var keyPath = Path.Combine(root, "key");
+            var plainPath = Path.Combine(root, "plain.bin");
+            File.WriteAllText(plainPath, "sprite loom");
+            Assert.Equal(0, await SloomCommandLine.RunAsync(
+                ["keygen", "--algorithm", "aes-256", "--out", keyPath],
+                new StringWriter(),
+                new StringWriter()));
+
+            var missingError = new StringWriter();
+            Assert.Equal(4, await SloomCommandLine.RunAsync(
+                ["encrypt", plainPath],
+                new StringWriter(),
+                missingError));
+            Assert.Contains("--key", missingError.ToString(), StringComparison.Ordinal);
+
+            var encryptedPath = Path.Combine(root, "plain.senc");
+            Assert.Equal(0, await SloomCommandLine.RunAsync(
+                ["encrypt", plainPath, "--key", keyPath, "--out", encryptedPath],
+                new StringWriter(),
+                new StringWriter()));
+
+            var otherKey = Path.Combine(root, "other.key");
+            Assert.Equal(0, await SloomCommandLine.RunAsync(
+                ["keygen", "--algorithm", "aes-256", "--out", otherKey],
+                new StringWriter(),
+                new StringWriter()));
+
+            var wrongError = new StringWriter();
+            Assert.Equal(4, await SloomCommandLine.RunAsync(
+                ["decrypt", encryptedPath, "--key", otherKey, "--out", Path.Combine(root, "wrong.out")],
+                new StringWriter(),
+                wrongError));
+            Assert.Contains("key id", wrongError.ToString(), StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+}

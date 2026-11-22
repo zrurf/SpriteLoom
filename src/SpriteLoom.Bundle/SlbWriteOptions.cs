@@ -9,4 +9,10 @@ public sealed class SlbWriteOptions
     public ISigner? Signer { get; init; }
 
     public bool WriteFooter { get; init; }
+
+    public SymmetricKey? EncryptionKey { get; init; }
+
+    public SymmetricAlgorithmKind EncryptionAlgorithm { get; init; } = SymmetricAlgorithmKind.Aes256Gcm;
+
+    public int EncryptionChunkSize { get; init; } = AeadChunker.DefaultChunkSize;
 }

@@ -70,10 +70,13 @@ public static class SlbVerifier
             errors.Add($"{BundleDiagnostics.IndexDigestMismatch}: Index digest mismatch.");
         }
 
+        var paths = archive.IndexEntries.ToDictionary(entry => entry.Block, entry => entry.Path);
         var contents = payloadEntries
-            .Select(entry => archive.RawBytes
-                .AsSpan((int)entry.Offset, (int)entry.StoredSize)
-                .ToArray())
+            .Select(entry => archive.Files.TryGetValue(paths[entry.BlockId], out var content)
+                ? content
+                : throw BundleDiagnostics.Error(
+                    BundleDiagnostics.MissingBlock,
+                    $"SLB block {entry.BlockId} is missing from the index."))
             .ToArray();
         var merkleRoot = SlbMerkle.Compute(contents);
 

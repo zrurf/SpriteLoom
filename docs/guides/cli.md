@@ -13,6 +13,9 @@ sloom <command> [options]
 | `validate` | Check configuration and source paths without packing. |
 | `inspect <path>` | Print manifest counts for a directory or `.slb` bundle. |
 | `keygen <prefix>` | Generate an Ed25519 key pair. |
+| `keygen --algorithm aes-256 --out <key>` | Generate a 32-byte symmetric key file. |
+| `encrypt <path>` | Encrypt a file or directory into `.senc` files. |
+| `decrypt <path>` | Decrypt `.senc` files. |
 | `sign <path>` | Sign a directory package. |
 | `verify <path>` | Verify a directory package or bundle. |
 | `diff <a> <b>` | Compare frame records between two packages. |
@@ -30,7 +33,11 @@ sloom <command> [options]
 | `--refresh` | `pack` | Rebuild every pass and replace cache entries. |
 | `--no-cache` | `pack` | Disable the pipeline cache for this run. |
 | `--watch` | `pack` | Rebuild when the configuration or sources change. |
-| `--key <path>` | `sign`, `verify` | Private key for signing, public key for verification. |
+| `--key <path>` | `sign`, `verify`, `encrypt`, `decrypt` | Private key for signing, public key for verification, or symmetric key for encryption. |
+| `--decrypt-key <path>` | `inspect`, `diff`, `verify` | Symmetric key for an encrypted `.slb` bundle. |
+| `--out <path>` | `keygen`, `encrypt`, `decrypt` | Output file or directory. |
+| `--algorithm <name>` | `keygen`, `encrypt` | `aes-256` for key generation; `aes-256-gcm` or `xchacha20-poly1305` for encryption. |
+| `--chunk-size <n>` | `encrypt` | AEAD chunk size; defaults to 65536. |
 | `--permissive` | `verify` | Report unsigned extra files as warnings. |
 | `--allow <path>` | `verify` | Allow an extra file or directory prefix. |
 
@@ -98,6 +105,12 @@ manifest = "json"           # or "cbor"
 [signing]
 enabled = true
 key = "keys/heroes.private.pem"
+
+[encryption]
+enabled = true
+algorithm = "aes-256-gcm"    # or xchacha20-poly1305
+key = "keys/asset.key"
+chunk-size = 65536
 ```
 
-When `kind = "bundle"`, `path` names the `.slb` file. A `[signing]` key signs both output forms during `pack`.
+When `kind = "bundle"`, `path` names the `.slb` file. A `[signing]` key signs both output forms during `pack`. An `[encryption]` section encrypts bundle payload blocks or directory package files. See [Encryption](encryption.md).

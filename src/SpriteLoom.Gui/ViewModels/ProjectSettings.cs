@@ -42,6 +42,7 @@ public sealed class ProjectSettings : ObservableObject
     private string _outputKind = "directory";
     private string _manifestFormatName = "json";
     private string _signingKeyPath = string.Empty;
+    private PackageEncryptionOptions? _encryption;
 
     public ProjectSettings(string baseDirectory)
     {
@@ -230,6 +231,12 @@ public sealed class ProjectSettings : ObservableObject
         set => Set(ref _signingKeyPath, value);
     }
 
+    public PackageEncryptionOptions? Encryption
+    {
+        get => _encryption;
+        private set => Set(ref _encryption, value);
+    }
+
     public static ProjectSettings FromConfig(ProjectConfig config)
     {
         ArgumentNullException.ThrowIfNull(config);
@@ -259,7 +266,8 @@ public sealed class ProjectSettings : ObservableObject
             OutputPath = config.OutputPath,
             OutputKind = config.OutputKind,
             ManifestFormatName = config.ManifestFormat == ManifestFormat.Cbor ? "cbor" : "json",
-            SigningKeyPath = config.SigningKeyPath ?? string.Empty
+            SigningKeyPath = config.SigningKeyPath ?? string.Empty,
+            Encryption = config.Encryption
         };
 
         foreach (var source in config.Sources)
@@ -473,6 +481,7 @@ public sealed class ProjectSettings : ObservableObject
             OutputPath = OutputPath.Trim(),
             OutputKind = OutputKind,
             SigningKeyPath = string.IsNullOrWhiteSpace(SigningKeyPath) ? null : SigningKeyPath,
+            Encryption = Encryption,
             ManifestFormat = manifestFormat
         };
     }
@@ -504,6 +513,7 @@ public sealed class ProjectSettings : ObservableObject
             OutputKind,
             ManifestFormatName,
             SigningKeyPath,
+            Encryption,
             Sources.Select(source => source.Capture()).ToArray(),
             Animations);
 
@@ -534,7 +544,8 @@ public sealed class ProjectSettings : ObservableObject
             OutputPath = snapshot.OutputPath,
             OutputKind = snapshot.OutputKind,
             ManifestFormatName = snapshot.ManifestFormat,
-            SigningKeyPath = snapshot.SigningKeyPath
+            SigningKeyPath = snapshot.SigningKeyPath,
+            Encryption = snapshot.Encryption
         };
 
         foreach (var source in snapshot.Sources)
@@ -648,5 +659,6 @@ internal sealed record ProjectSnapshot(
     string OutputKind,
     string ManifestFormat,
     string SigningKeyPath,
+    PackageEncryptionOptions? Encryption,
     IReadOnlyList<SourceSnapshot> Sources,
     IReadOnlyList<AnimationSpec> Animations);

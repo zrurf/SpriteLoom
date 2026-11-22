@@ -151,6 +151,17 @@ public static class ProjectConfigWriter
             builder.Append("key = ").Append(Quote(config.SigningKeyPath)).Append('\n');
         }
 
+        if (config.Encryption is not null)
+        {
+            builder.Append("\n[encryption]\n");
+            builder.Append("enabled = true\n");
+            builder.Append("algorithm = ").Append(Quote(config.Encryption.Algorithm)).Append('\n');
+            builder.Append("key = ").Append(Quote(config.Encryption.KeyPath)).Append('\n');
+            builder.Append("chunk-size = ")
+                .Append(config.Encryption.ChunkSize.ToString(CultureInfo.InvariantCulture))
+                .Append('\n');
+        }
+
         return builder.ToString();
     }
 

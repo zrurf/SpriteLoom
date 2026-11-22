@@ -49,6 +49,10 @@ public sealed class ProjectConfigWriterTests
                 OutputPath = "build/heroes.slb",
                 OutputKind = "bundle",
                 SigningKeyPath = "keys/private.key",
+                Encryption = new PackageEncryptionOptions(
+                    "xchacha20-poly1305",
+                    "keys/asset.key",
+                    16384),
                 ManifestFormat = ManifestFormat.Cbor
             };
             var path = Path.Combine(root, "sloom.toml");
@@ -79,6 +83,10 @@ public sealed class ProjectConfigWriterTests
             Assert.Equal("build/heroes.slb", loaded.OutputPath);
             Assert.Equal("bundle", loaded.OutputKind);
             Assert.Equal("keys/private.key", loaded.SigningKeyPath);
+            Assert.NotNull(loaded.Encryption);
+            Assert.Equal("xchacha20-poly1305", loaded.Encryption.Algorithm);
+            Assert.Equal("keys/asset.key", loaded.Encryption.KeyPath);
+            Assert.Equal(16384, loaded.Encryption.ChunkSize);
             Assert.Equal(ManifestFormat.Cbor, loaded.ManifestFormat);
             Assert.Single(loaded.Sources);
             var source = loaded.Sources[0];

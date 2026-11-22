@@ -1,4 +1,6 @@
 using System.Buffers.Binary;
+using System.Security.Cryptography;
+using System.Text;
 using SpriteLoom.Security;
 
 namespace SpriteLoom.Bundle;
@@ -14,6 +16,12 @@ public static class SlbWriter
             ? HashAlgorithmKind.XxHash64
             : options.Checksums;
         var signer = options.Signer;
+        var encryption = CreateEncryption(files, options);
+
+        if (options.EncryptionKey is not null)
+        {
+            AeadChunker.ValidateChunkSize(options.EncryptionChunkSize);
+        }
 
         var ordered = files
             .OrderBy(file => Priority(file.Kind))
@@ -34,7 +42,25 @@ public static class SlbWriter
             indexEntries.Add(new SlbIndexEntry(signaturePath, signatureBlockId, SlbBlockKind.Signature));
         }
 
-        var indexBytes = SlbIndex.Write(indexEntries);
+        var storedContents = new byte[payloadCount][];
+        var chunkCounts = new uint[payloadCount];
+
+        for (var index = 0; index < payloadCount; index++)
+        {
+            storedContents[index] = encryption is null
+                ? ordered[index].Content
+                : EncryptBlock(
+                    ordered[index].Content,
+                    index,
+                    encryption,
+                    options.EncryptionKey!,
+                    options.EncryptionAlgorithm,
+                    options.EncryptionChunkSize,
+                    out chunkCounts[index]);
+        }
+
+        var cryptoEntries = encryption is null ? [] : new[] { encryption.Entry };
+        var indexBytes = SlbIndex.Write(indexEntries, cryptoEntries);
         var digestBytes = SlbChecksums.DigestBytes(mask);
         var digestRegionOffset = SlbChecksums.Align8(64 + 64 * blockCount);
         var indexOffset = SlbChecksums.Align8(digestRegionOffset + digestBytes * blockCount);
@@ -46,7 +72,7 @@ public static class SlbWriter
         for (var index = 0; index < payloadCount; index++)
         {
             offsets[index] = (ulong)cursor;
-            cursor = SlbChecksums.Align64(checked(cursor + ordered[index].Content.Length));
+            cursor = SlbChecksums.Align64(checked(cursor + storedContents[index].Length));
         }
 
         var signatureOffset = cursor;
@@ -59,7 +85,16 @@ public static class SlbWriter
 
             for (var index = 0; index < payloadCount; index++)
             {
-                BuildEntry(ordered[index], (uint)index, offsets[index], digestBytes, mask, signer is not null)
+                BuildEntry(
+                        ordered[index],
+                        (uint)index,
+                        offsets[index],
+                        storedContents[index],
+                        chunkCounts[index],
+                        digestBytes,
+                        mask,
+                        signer is not null,
+                        options.EncryptionKey)
                     .Write(payloadTableBytes.AsSpan(index * 64, 64));
             }
 
@@ -88,9 +123,18 @@ public static class SlbWriter
         for (var index = 0; index < payloadCount; index++)
         {
             var file = ordered[index];
-            var entry = BuildEntry(file, (uint)index, offsets[index], digestBytes, mask, signer is not null);
+            var entry = BuildEntry(
+                file,
+                (uint)index,
+                offsets[index],
+                storedContents[index],
+                chunkCounts[index],
+                digestBytes,
+                mask,
+                signer is not null,
+                options.EncryptionKey);
             entry.Write(buffer.AsSpan(64 + index * SlbFormat.BlockEntrySize, SlbFormat.BlockEntrySize));
-            file.Content.CopyTo(buffer.AsSpan((int)offsets[index]));
+            storedContents[index].CopyTo(buffer.AsSpan((int)offsets[index]));
             SlbChecksums.WriteDigests(
                 buffer.AsSpan(digestRegionOffset + index * digestBytes, digestBytes),
                 mask,
@@ -166,25 +210,94 @@ public static class SlbWriter
         File.WriteAllBytes(path, bytes);
     }
 
+    private static SlbEncryption? CreateEncryption(IReadOnlyList<SlbFile> files, SlbWriteOptions options)
+    {
+        if (options.EncryptionKey is null)
+        {
+            return null;
+        }
+
+        var algorithm = options.EncryptionAlgorithm;
+        var prefixLength = SymmetricAlgorithms.NoncePrefixSize(algorithm);
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        hash.AppendData("sloom-slb-encryption"u8);
+        hash.AppendData(options.EncryptionKey.Bytes.Span);
+
+        var ordered = files
+            .OrderBy(file => Priority(file.Kind))
+            .ThenBy(file => file.Path, StringComparer.Ordinal);
+
+        Span<byte> length = stackalloc byte[4];
+
+        foreach (var file in ordered)
+        {
+            hash.AppendData(Encoding.UTF8.GetBytes(file.Path));
+            hash.AppendData([(byte)file.Kind]);
+            BinaryPrimitives.WriteInt32LittleEndian(length, file.Content.Length);
+            hash.AppendData(length);
+            hash.AppendData(file.Content);
+        }
+
+        var digest = hash.GetHashAndReset();
+        var salt = digest.AsSpan(0, 16).ToArray();
+        var noncePrefix = digest.AsSpan(16, prefixLength).ToArray();
+        var entry = new SlbCryptoEntry(
+            options.EncryptionKey.KeyId,
+            algorithm,
+            salt,
+            noncePrefix,
+            options.EncryptionChunkSize);
+        return new SlbEncryption(entry, salt, noncePrefix);
+    }
+
+    private static byte[] EncryptBlock(
+        byte[] content,
+        int blockId,
+        SlbEncryption encryption,
+        SymmetricKey key,
+        SymmetricAlgorithmKind algorithm,
+        int chunkSize,
+        out uint chunkCount)
+    {
+        var blockKey = key.DeriveBlockKey(key.KeyId, (uint)blockId, encryption.Salt);
+        var ciphertext = AeadChunker.Encrypt(
+            algorithm,
+            blockKey,
+            encryption.NoncePrefix,
+            content,
+            chunkSize,
+            out chunkCount);
+        var padded = new byte[SlbChecksums.Align64(ciphertext.Length)];
+        ciphertext.CopyTo(padded, 0);
+        CryptographicOperations.ZeroMemory(blockKey);
+        return padded;
+    }
+
     private static SlbBlockEntry BuildEntry(
         SlbFile file,
         uint blockId,
         ulong offset,
+        byte[] storedContent,
+        uint chunkCount,
         int digestBytes,
         HashAlgorithmKind mask,
-        bool signed) =>
+        bool signed,
+        SymmetricKey? encryptionKey) =>
         new()
         {
             Offset = offset,
-            StoredSize = (ulong)file.Content.Length,
+            StoredSize = (ulong)storedContent.Length,
             RawSize = (ulong)file.Content.Length,
             BlockId = blockId,
             Kind = file.Kind,
             Codec = SlbCodec.None,
-            Flags = (signed ? SlbBlockFlags.SignedLeaf : SlbBlockFlags.None) |
+            Flags = (encryptionKey is null ? SlbBlockFlags.None : SlbBlockFlags.Encrypted) |
+                    (signed ? SlbBlockFlags.SignedLeaf : SlbBlockFlags.None) |
                     (file.Kind is SlbBlockKind.Manifest or SlbBlockKind.Container or SlbBlockKind.Image
                         ? SlbBlockFlags.Critical
                         : SlbBlockFlags.None),
+            ChunkCount = chunkCount,
+            KeyId = encryptionKey?.KeyId ?? 0,
             ChecksumAlgorithms = mask,
             DigestOffset = (uint)(blockId * digestBytes)
         };
@@ -200,4 +313,9 @@ public static class SlbWriter
         SlbBlockKind.Signature => 6,
         _ => 99
     };
+
+    private sealed record SlbEncryption(
+        SlbCryptoEntry Entry,
+        byte[] Salt,
+        byte[] NoncePrefix);
 }

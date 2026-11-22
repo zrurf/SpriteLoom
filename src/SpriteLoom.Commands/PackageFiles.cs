@@ -1,4 +1,5 @@
 using SpriteLoom.Bundle;
+using SpriteLoom.Security;
 
 namespace SpriteLoom.Commands;
 
@@ -24,13 +25,13 @@ internal sealed class PackageFiles
 
     public bool HasJsonManifest => ManifestPath.EndsWith(".json", StringComparison.OrdinalIgnoreCase);
 
-    public static PackageFiles Open(string target)
+    public static PackageFiles Open(string target, SymmetricKey? decryptionKey = null)
     {
         var fullPath = Path.GetFullPath(target);
 
         if (File.Exists(fullPath) && fullPath.EndsWith(".slb", StringComparison.OrdinalIgnoreCase))
         {
-            var archive = SlbReader.ReadFile(fullPath);
+            var archive = SlbReader.ReadFile(fullPath, decryptionKey: decryptionKey);
             var manifestPath = FindManifest(archive.Files.Keys)
                 ?? throw new InvalidDataException("Bundle does not contain a manifest.");
             return new PackageFiles(archive.Files, fullPath, manifestPath);
@@ -43,7 +44,7 @@ internal sealed class PackageFiles
             if (name is "manifest.json" or "manifest.cbor")
             {
                 var root = Path.GetDirectoryName(fullPath)!;
-                return new PackageFiles(ReadDirectory(root), fullPath, name);
+                return new PackageFiles(ReadDirectory(root, decryptionKey), fullPath, name);
             }
 
             var files = new Dictionary<string, byte[]>(StringComparer.Ordinal)
@@ -58,21 +59,36 @@ internal sealed class PackageFiles
             throw new FileNotFoundException("Package path not found.", fullPath);
         }
 
-        var directoryFiles = ReadDirectory(fullPath);
+        var directoryFiles = ReadDirectory(fullPath, decryptionKey);
         var directoryManifest = FindManifest(directoryFiles.Keys)
             ?? throw new FileNotFoundException("No manifest found in the package directory.", fullPath);
 
         return new PackageFiles(directoryFiles, fullPath, directoryManifest);
     }
 
-    private static Dictionary<string, byte[]> ReadDirectory(string root)
+    private static Dictionary<string, byte[]> ReadDirectory(string root, SymmetricKey? decryptionKey)
     {
         var files = new Dictionary<string, byte[]>(StringComparer.Ordinal);
 
         foreach (var path in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
         {
             var relativePath = Path.GetRelativePath(root, path).Replace('\\', '/');
-            files[relativePath] = File.ReadAllBytes(path);
+
+            if (!relativePath.EndsWith(SencFile.Extension, StringComparison.OrdinalIgnoreCase))
+            {
+                files[relativePath] = File.ReadAllBytes(path);
+                continue;
+            }
+
+            if (decryptionKey is null)
+            {
+                throw new InvalidDataException(
+                    $"SL5022: Encrypted package file requires --decrypt-key: {relativePath}");
+            }
+
+            files[relativePath[..^SencFile.Extension.Length]] = SencFile.Decrypt(
+                File.ReadAllBytes(path),
+                decryptionKey);
         }
 
         return files;

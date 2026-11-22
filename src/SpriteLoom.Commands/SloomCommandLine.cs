@@ -51,6 +51,8 @@ public static class SloomCommandLine
                 "validate" => RunValidate(options, output),
                 "inspect" => RunInspect(options, output),
                 "keygen" => RunKeygen(options, output),
+                "encrypt" => RunEncrypt(options, output),
+                "decrypt" => RunDecrypt(options, output),
                 "sign" => RunSign(options, output),
                 "verify" => RunVerify(options, output),
                 "diff" => RunDiff(options, output),
@@ -260,7 +262,7 @@ public static class SloomCommandLine
             throw new ArgumentException("inspect requires a package directory or manifest path.");
         }
 
-        var package = PackageFiles.Open(options.Path);
+        var package = PackageFiles.Open(options.Path, LoadDecryptionKey(options));
         var format = package.HasJsonManifest ? ManifestFormat.Json : ManifestFormat.Cbor;
 
         using var stream = new MemoryStream(package.ManifestBytes);
@@ -297,7 +299,7 @@ public static class SloomCommandLine
 
                     if (!string.IsNullOrWhiteSpace(options.BaselinePath))
                     {
-                        baseline = PackageFiles.Open(options.BaselinePath);
+                        baseline = PackageFiles.Open(options.BaselinePath, LoadDecryptionKey(options));
                     }
 
                     WriteStats(package, output, baseline);
@@ -463,6 +465,26 @@ public static class SloomCommandLine
 
     private static int RunKeygen(CommandOptions options, TextWriter output)
     {
+        if (options.Algorithm is not null)
+        {
+            if (options.Algorithm is not ("aes-256" or "xchacha20" or "symmetric"))
+            {
+                throw new ArgumentException($"Unsupported key algorithm: {options.Algorithm}");
+            }
+
+            if (string.IsNullOrWhiteSpace(options.OutPath))
+            {
+                throw new ArgumentException("Symmetric keygen requires --out <key-file>.");
+            }
+
+            var symmetricKey = SymmetricKey.Generate();
+            var keyPath = Path.GetFullPath(options.OutPath);
+            symmetricKey.Save(keyPath);
+            output.WriteLine($"Symmetric key: {keyPath}");
+            output.WriteLine($"Key id: {symmetricKey.KeyId:X4}");
+            return 0;
+        }
+
         if (string.IsNullOrWhiteSpace(options.Path))
         {
             throw new ArgumentException("keygen requires an output prefix.");
@@ -493,6 +515,180 @@ public static class SloomCommandLine
         output.WriteLine($"Key id: {keyPair.KeyId}");
         return 0;
     }
+
+    private static int RunEncrypt(CommandOptions options, TextWriter output)
+    {
+        if (string.IsNullOrWhiteSpace(options.Path))
+        {
+            throw new ArgumentException("encrypt requires an input file or directory.");
+        }
+
+        if (string.IsNullOrWhiteSpace(options.KeyPath))
+        {
+            throw new ArgumentException("encrypt requires --key <symmetric-key>.");
+        }
+
+        var key = SymmetricKey.Load(Path.GetFullPath(options.KeyPath));
+        var algorithm = SymmetricAlgorithms.Parse(options.Algorithm ?? "aes-256-gcm");
+        var chunkSize = options.ChunkSize ?? AeadChunker.DefaultChunkSize;
+        var input = Path.GetFullPath(options.Path);
+
+        if (File.Exists(input))
+        {
+            var outputPath = ResolveEncryptFileOutput(input, options.OutPath);
+            EncryptFile(input, outputPath, key, algorithm, chunkSize);
+            output.WriteLine($"Encrypted {input} -> {outputPath}");
+            return 0;
+        }
+
+        if (!Directory.Exists(input))
+        {
+            throw new FileNotFoundException("Input path not found.", input);
+        }
+
+        var destination = Path.GetFullPath(options.OutPath ?? input + ".encrypted");
+        var inputRoot = Path.TrimEndingDirectorySeparator(input);
+        var destinationRoot = Path.TrimEndingDirectorySeparator(destination);
+
+        if (string.Equals(inputRoot, destinationRoot, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException("Encryption output must differ from the input directory.");
+        }
+
+        var count = 0;
+
+        foreach (var file in Directory.EnumerateFiles(inputRoot, "*", SearchOption.AllDirectories))
+        {
+            var relative = Path.GetRelativePath(inputRoot, file);
+
+            if (IsUnder(file, destinationRoot))
+            {
+                continue;
+            }
+
+            var target = Path.Combine(destinationRoot, relative + SencFile.Extension);
+            EncryptFile(file, target, key, algorithm, chunkSize);
+            count++;
+        }
+
+        output.WriteLine($"Encrypted {count} files -> {destinationRoot}");
+        return 0;
+    }
+
+    private static int RunDecrypt(CommandOptions options, TextWriter output)
+    {
+        if (string.IsNullOrWhiteSpace(options.Path))
+        {
+            throw new ArgumentException("decrypt requires an input file or directory.");
+        }
+
+        if (string.IsNullOrWhiteSpace(options.KeyPath))
+        {
+            throw new ArgumentException("decrypt requires --key <symmetric-key>.");
+        }
+
+        var key = SymmetricKey.Load(Path.GetFullPath(options.KeyPath));
+        var input = Path.GetFullPath(options.Path);
+
+        if (File.Exists(input))
+        {
+            var outputPath = ResolveDecryptFileOutput(input, options.OutPath);
+            DecryptFile(input, outputPath, key);
+            output.WriteLine($"Decrypted {input} -> {outputPath}");
+            return 0;
+        }
+
+        if (!Directory.Exists(input))
+        {
+            throw new FileNotFoundException("Input path not found.", input);
+        }
+
+        var destination = Path.GetFullPath(options.OutPath ?? Path.TrimEndingDirectorySeparator(input) + ".decrypted");
+        var inputRoot = Path.TrimEndingDirectorySeparator(input);
+        var destinationRoot = Path.TrimEndingDirectorySeparator(destination);
+        var count = 0;
+
+        foreach (var file in Directory.EnumerateFiles(inputRoot, "*" + SencFile.Extension, SearchOption.AllDirectories))
+        {
+            var relative = Path.GetRelativePath(inputRoot, file);
+            var target = Path.Combine(destinationRoot, relative[..^SencFile.Extension.Length]);
+            DecryptFile(file, target, key);
+            count++;
+        }
+
+        if (count == 0)
+        {
+            throw new InvalidDataException("No .senc files found.");
+        }
+
+        output.WriteLine($"Decrypted {count} files -> {destinationRoot}");
+        return 0;
+    }
+
+    private static void EncryptFile(
+        string input,
+        string output,
+        SymmetricKey key,
+        SymmetricAlgorithmKind algorithm,
+        int chunkSize)
+    {
+        var encrypted = SencFile.Encrypt(File.ReadAllBytes(input), key, algorithm, chunkSize);
+        WriteFile(output, encrypted);
+    }
+
+    private static void DecryptFile(string input, string output, SymmetricKey key)
+    {
+        var decrypted = SencFile.Decrypt(File.ReadAllBytes(input), key);
+        WriteFile(output, decrypted);
+    }
+
+    private static void WriteFile(string path, byte[] bytes)
+    {
+        var directory = Path.GetDirectoryName(path);
+
+        if (!string.IsNullOrEmpty(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        File.WriteAllBytes(path, bytes);
+    }
+
+    private static string ResolveEncryptFileOutput(string input, string? requested)
+    {
+        if (string.IsNullOrWhiteSpace(requested))
+        {
+            return input + SencFile.Extension;
+        }
+
+        var output = Path.GetFullPath(requested);
+
+        if (Directory.Exists(output))
+        {
+            return Path.Combine(output, Path.GetFileName(input) + SencFile.Extension);
+        }
+
+        return output;
+    }
+
+    private static string ResolveDecryptFileOutput(string input, string? requested)
+    {
+        if (!string.IsNullOrWhiteSpace(requested))
+        {
+            return Path.GetFullPath(requested);
+        }
+
+        if (input.EndsWith(SencFile.Extension, StringComparison.OrdinalIgnoreCase))
+        {
+            return input[..^SencFile.Extension.Length];
+        }
+
+        return input + ".decrypted";
+    }
+
+    private static bool IsUnder(string path, string root) =>
+        path.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
+        path.StartsWith(root + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
 
     private static int RunSign(CommandOptions options, TextWriter output)
     {
@@ -544,7 +740,7 @@ public static class SloomCommandLine
         {
             if (File.Exists(target) && target.EndsWith(".slb", StringComparison.OrdinalIgnoreCase))
             {
-                var archive = SlbReader.ReadFile(target);
+                var archive = SlbReader.ReadFile(target, decryptionKey: LoadDecryptionKey(options));
                 errors.AddRange(SlbVerifier.Verify(archive, verifier));
             }
             else
@@ -595,6 +791,11 @@ public static class SloomCommandLine
         return errors.Count == 0 ? 0 : 4;
     }
 
+    private static SymmetricKey? LoadDecryptionKey(CommandOptions options) =>
+        string.IsNullOrWhiteSpace(options.DecryptionKeyPath)
+            ? null
+            : SymmetricKey.Load(Path.GetFullPath(options.DecryptionKeyPath));
+
     private static int RunDiff(CommandOptions options, TextWriter output)
     {
         if (options.Paths.Count < 2)
@@ -602,8 +803,9 @@ public static class SloomCommandLine
             throw new ArgumentException("diff requires two package paths.");
         }
 
-        var left = PackageFiles.Open(options.Paths[0]);
-        var right = PackageFiles.Open(options.Paths[1]);
+        var decryptionKey = LoadDecryptionKey(options);
+        var left = PackageFiles.Open(options.Paths[0], decryptionKey);
+        var right = PackageFiles.Open(options.Paths[1], decryptionKey);
         var result = PackageDiff.Compare(left, right);
 
         if (options.Json)
@@ -788,6 +990,44 @@ public static class SloomCommandLine
 
                     options.KeyPath = args[++index];
                     break;
+                case "--out":
+                    if (index + 1 >= args.Length)
+                    {
+                        throw new ArgumentException("--out requires a path.");
+                    }
+
+                    options.OutPath = args[++index];
+                    break;
+                case "--algorithm":
+                    if (index + 1 >= args.Length)
+                    {
+                        throw new ArgumentException("--algorithm requires a name.");
+                    }
+
+                    options.Algorithm = args[++index];
+                    break;
+                case "--decrypt-key":
+                    if (index + 1 >= args.Length)
+                    {
+                        throw new ArgumentException("--decrypt-key requires a path.");
+                    }
+
+                    options.DecryptionKeyPath = args[++index];
+                    break;
+                case "--chunk-size":
+                    if (index + 1 >= args.Length ||
+                        !int.TryParse(
+                            args[++index],
+                            NumberStyles.Integer,
+                            CultureInfo.InvariantCulture,
+                            out var chunkSize) ||
+                        chunkSize <= 0)
+                    {
+                        throw new ArgumentException("--chunk-size requires a positive integer.");
+                    }
+
+                    options.ChunkSize = chunkSize;
+                    break;
                 case "--allow":
                     if (index + 1 >= args.Length)
                     {
@@ -863,6 +1103,10 @@ public static class SloomCommandLine
         output.WriteLine("  validate           Validate configuration and inputs");
         output.WriteLine("  inspect <path>     Inspect a built package");
         output.WriteLine("  keygen <prefix>    Generate an Ed25519 key pair");
+        output.WriteLine("  keygen --algorithm aes-256 --out <key>");
+        output.WriteLine("                     Generate a symmetric key file");
+        output.WriteLine("  encrypt <path>     Encrypt a file or directory into .senc files");
+        output.WriteLine("  decrypt <path>     Decrypt .senc files");
         output.WriteLine("  sign <path>        Sign a directory package");
         output.WriteLine("  verify <path>      Verify a directory package or bundle");
         output.WriteLine("  diff <a> <b>       Compare frame records of two packages");
@@ -871,7 +1115,11 @@ public static class SloomCommandLine
         output.WriteLine("Options:");
         output.WriteLine("  --config <path>    Configuration file or project directory (default: sloom.toml)");
         output.WriteLine("  --version          Print the CLI version");
-        output.WriteLine("  --key <path>       Private or public key for sign and verify");
+        output.WriteLine("  --key <path>       Private, public, or symmetric key path");
+        output.WriteLine("  --decrypt-key <p>  Symmetric key for encrypted bundles in inspect/diff/verify");
+        output.WriteLine("  --out <path>       Output path for keygen, encrypt, and decrypt");
+        output.WriteLine("  --algorithm <name> aes-256, xchacha20, aes-256-gcm, or xchacha20-poly1305");
+        output.WriteLine("  --chunk-size <n>   AEAD chunk size in bytes (default: 65536)");
         output.WriteLine("  --json             Emit JSON");
         output.WriteLine("  --stats            Include additional details for inspect");
         output.WriteLine("  --baseline <path>  Compare inspect statistics with a baseline package");
@@ -895,6 +1143,14 @@ public static class SloomCommandLine
         public string? Path => Paths.Count > 0 ? Paths[0] : null;
 
         public string? KeyPath { get; set; }
+
+        public string? OutPath { get; set; }
+
+        public string? Algorithm { get; set; }
+
+        public string? DecryptionKeyPath { get; set; }
+
+        public int? ChunkSize { get; set; }
 
         public bool Json { get; set; }
 

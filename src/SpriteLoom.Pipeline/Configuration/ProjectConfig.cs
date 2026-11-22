@@ -48,5 +48,7 @@ public sealed class ProjectConfig
 
     public string? SigningKeyPath { get; init; }
 
+    public PackageEncryptionOptions? Encryption { get; init; }
+
     public required ManifestFormat ManifestFormat { get; init; }
 }

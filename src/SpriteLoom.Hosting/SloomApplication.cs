@@ -70,6 +70,16 @@ public sealed class SloomApplication
             }
         }
 
+        if (_config.Encryption is not null)
+        {
+            var keyPath = Path.GetFullPath(Path.Combine(_config.BaseDirectory, _config.Encryption.KeyPath));
+
+            if (!File.Exists(keyPath))
+            {
+                diagnostics.Add(Diagnostic.Error("SL2005", $"Encryption key not found: {keyPath}"));
+            }
+        }
+
         return diagnostics;
     }
 

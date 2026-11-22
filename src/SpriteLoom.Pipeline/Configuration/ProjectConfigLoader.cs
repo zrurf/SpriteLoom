@@ -4,6 +4,7 @@ using SpriteLoom.Foundation;
 using SpriteLoom.Imaging;
 using SpriteLoom.Model.Iri;
 using SpriteLoom.Model.Manifest;
+using SpriteLoom.Security;
 using SpriteLoom.Textures;
 using Tomlyn;
 using Tomlyn.Model;
@@ -117,6 +118,33 @@ public static class ProjectConfigLoader
             signingKeyPath = null;
         }
 
+        var encryptionTable = Table(model, "encryption");
+        var encryptionKeyPath = String(encryptionTable, "key");
+        PackageEncryptionOptions? encryption = null;
+
+        if (encryptionKeyPath is not null && Bool(encryptionTable, "enabled", true))
+        {
+            var algorithmName = String(encryptionTable, "algorithm") ?? "aes-256-gcm";
+
+            try
+            {
+                _ = SymmetricAlgorithms.Parse(algorithmName);
+            }
+            catch (ArgumentException exception)
+            {
+                throw new InvalidDataException(exception.Message, exception);
+            }
+
+            var chunkSize = Int(encryptionTable, "chunk-size", 65536);
+
+            if (chunkSize is < 1 or > 1024 * 1024)
+            {
+                throw new InvalidDataException("encryption.chunk-size must be between 1 and 1048576.");
+            }
+
+            encryption = new PackageEncryptionOptions(algorithmName, encryptionKeyPath, chunkSize);
+        }
+
         var manifest = String(output, "manifest") ?? "json";
         var format = string.Equals(manifest, "cbor", StringComparison.OrdinalIgnoreCase)
             ? ManifestFormat.Cbor
@@ -144,6 +172,7 @@ public static class ProjectConfigLoader
             OutputPath = outputPath,
             OutputKind = outputKind,
             SigningKeyPath = signingKeyPath,
+            Encryption = encryption,
             ManifestFormat = format
         };
     }

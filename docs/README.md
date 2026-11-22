@@ -7,6 +7,7 @@ SpriteLoom compiles sprite sources into a package that a runtime can load direct
 - [Identifiers](spec/iri.md): the `pkg`, `frame`, `anim`, `page`, and `blob` schemes.
 - [Package format](spec/package.md): directory packages and the `.slb` bundle.
 - [Signatures](spec/signatures.md): Ed25519 signing and verification for both package forms.
+- [Encryption](guides/encryption.md): AES-256-GCM and XChaCha20-Poly1305 for `.senc` files and `.slb` bundles.
 - [Textures](spec/textures.md): pixel formats, dithering, KTX2, and GPU targets.
 
 ## Guides
