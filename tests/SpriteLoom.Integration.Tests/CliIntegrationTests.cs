@@ -93,6 +93,11 @@ public sealed class CliIntegrationTests
             .ToArray();
 
         Assert.Contains("ktx2-basis-uastc", targets);
+        Assert.Contains(
+            "aes-256-gcm",
+            document.RootElement.GetProperty("encryption-algorithms")
+                .EnumerateArray()
+                .Select(value => value.GetString()));
         Assert.Contains("webp", document.RootElement.GetProperty("image-formats")
             .EnumerateArray()
             .Select(value => value.GetString()));
