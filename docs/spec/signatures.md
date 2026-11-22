@@ -25,7 +25,7 @@ A directory signature covers every file except `signatures/`:
 - Each file is recorded with its size and SHA-256 digest.
 - The signature document is stored as `signatures/<key-id>.sig.cbor`.
 
-Verification checks the Ed25519 signature first, then each recorded file. Encrypted bundle payloads must be decrypted before signature verification because the signature covers plaintext; use the bundle decryption key. Strict mode rejects files that are not covered by the signature. Permissive mode reports them as warnings. Explicit whitelist entries allow named files or directory prefixes.
+Verification checks the Ed25519 signature first, then each recorded file. Encrypted bundle payloads must be decrypted before signature verification because the signature covers plaintext; use the bundle decryption key. Encrypted directory packages store `.senc` files and the directory signature covers those stored entries, so their signature can be checked without the symmetric key. Strict mode rejects files that are not covered by the signature. Permissive mode reports them as warnings. Explicit whitelist entries allow named files or directory prefixes.
 
 ## Bundles
 
