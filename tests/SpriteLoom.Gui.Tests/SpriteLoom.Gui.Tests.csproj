@@ -12,6 +12,7 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" ExcludeAssets="native" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />

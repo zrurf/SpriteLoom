@@ -13,6 +13,7 @@
     <PackageReference Include="Avalonia.Fonts.Inter" />
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <PackageReference Include="Semi.Avalonia" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" ExcludeAssets="native" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../SpriteLoom.Foundation/SpriteLoom.Foundation.csproj" />
