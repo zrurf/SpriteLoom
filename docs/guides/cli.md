@@ -19,7 +19,7 @@ sloom <command> [options]
 | `sign <path>` | Sign a directory package. |
 | `verify <path>` | Verify a directory package or bundle. |
 | `diff <a> <b>` | Compare frame records between two packages. |
-| `formats` | List image formats, texture targets, and packers. |
+| `formats` | List image formats, texture targets, packers, and encryption algorithms. |
 
 ## Options
 

@@ -915,6 +915,7 @@ public static class SloomCommandLine
 
                 writer.WriteEndArray();
                 WriteStringArray(writer, "packers", ["pack.basic", "pack.maxrects"]);
+                WriteStringArray(writer, "encryption-algorithms", ["aes-256-gcm", "xchacha20-poly1305"]);
             });
 
             return 0;
@@ -931,6 +932,7 @@ public static class SloomCommandLine
         }
 
         output.WriteLine("Packers: pack.basic, pack.maxrects");
+        output.WriteLine("Encryption: aes-256-gcm, xchacha20-poly1305");
         return 0;
     }
 
