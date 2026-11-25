@@ -88,6 +88,8 @@ var key = SymmetricKey.Load("keys/asset.key");
 var archive = SlbReader.ReadFile("build/heroes.slb", decryptionKey: key);
 ```
 
+The Dart and TypeScript runtimes expose the same flow. Dart uses `SloomPackage.openSlb(..., key: key)` or `open(..., key: key)` for encrypted directories; TypeScript uses `SloomPackage.openSlb(url, { key })`, `SloomPackage.fromSlb(bytes, key)`, or `SloomPackage.open(url, { key })`. Both expose `readFile(path)` for page variants, which decrypts `.senc` files before image decoding.
+
 Without a key, the reader reports `SL5022`. A key with the wrong id reports `SL5043`, and a failed authentication tag reports `SL5045`.
 
 Encrypted directory packages use the same `SENC` container per file, so readers must decrypt `.senc` entries before parsing the manifest. CLI commands accept `--decrypt-key`:

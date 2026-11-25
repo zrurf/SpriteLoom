@@ -44,7 +44,9 @@ class SloomAtlas {
       throw StateError('Page $page has no raster variant.');
     }
 
-    final bytes = await _load(variant.file);
+    final bytes = package.hasFileSource
+        ? await package.readFile(variant.file)
+        : await _load(variant.file);
     final codec = await ui.instantiateImageCodec(bytes);
     final frame = await codec.getNextFrame();
     return frame.image;

@@ -37,6 +37,34 @@ jobs:
         shell: bash
         run: ./nx run-many -t build test
 
+  dart:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: "3.14.0"
+      - name: Analyze and test Dart runtime
+        working-directory: runtime/dart/packages/sprite_loom
+        run: |
+          dart pub get
+          dart analyze
+          dart test
+
+  flutter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.50.1"
+          channel: stable
+      - name: Test Flutter renderer
+        working-directory: runtime/dart/packages/sprite_loom_flutter
+        run: |
+          flutter pub get
+          flutter test
+
   native:
     runs-on: ubuntu-latest
     steps:

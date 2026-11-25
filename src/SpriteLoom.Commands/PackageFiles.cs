@@ -29,6 +29,13 @@ internal sealed class PackageFiles
     {
         var fullPath = Path.GetFullPath(target);
 
+        if (!File.Exists(fullPath) &&
+            !Directory.Exists(fullPath) &&
+            File.Exists(fullPath + SencFile.Extension))
+        {
+            fullPath += SencFile.Extension;
+        }
+
         if (File.Exists(fullPath) && fullPath.EndsWith(".slb", StringComparison.OrdinalIgnoreCase))
         {
             var archive = SlbReader.ReadFile(fullPath, decryptionKey: decryptionKey);
@@ -41,10 +48,15 @@ internal sealed class PackageFiles
         {
             var name = Path.GetFileName(fullPath);
 
-            if (name is "manifest.json" or "manifest.cbor")
+            if (name is "manifest.json" or "manifest.cbor" ||
+                (name.EndsWith(SencFile.Extension, StringComparison.OrdinalIgnoreCase) &&
+                 name.StartsWith("manifest.", StringComparison.Ordinal)))
             {
                 var root = Path.GetDirectoryName(fullPath)!;
-                return new PackageFiles(ReadDirectory(root, decryptionKey), fullPath, name);
+                var manifestFiles = ReadDirectory(root, decryptionKey);
+                var manifest = FindManifest(manifestFiles.Keys)
+                    ?? throw new FileNotFoundException("No manifest found in the package directory.", root);
+                return new PackageFiles(manifestFiles, root, manifest);
             }
 
             var files = new Dictionary<string, byte[]>(StringComparer.Ordinal)

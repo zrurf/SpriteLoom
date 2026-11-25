@@ -2,7 +2,7 @@
 
 The Flutter runtime lives in `runtime/dart` and consists of two packages:
 
-- `sprite_loom` parses the package manifest, page containers, frame records, and animation documents.
+- `sprite_loom` parses JSON/CBOR directory manifests, `.slb` bundles, page containers, frame records, animation documents, and encrypted `.senc` payloads.
 - `sprite_loom_flutter` decodes page images and draws frames with `Canvas.drawImageRect`.
 
 It targets Dart 3.6+ and Flutter 3.27+, and is tested with Flutter 3.50.
@@ -31,7 +31,7 @@ Future<Uint8List> loadAsset(String path) async =>
 
 Future<SloomAtlas> openAtlas() async {
   final package = await SloomPackage.open(
-    manifestPath: 'manifest.json',
+    manifestPath: 'manifest.cbor', // or manifest.json
     load: loadAsset,
   );
   return SloomAtlas(package, load: loadAsset);
@@ -55,6 +55,8 @@ FutureBuilder<SloomAtlas>(
   },
 )
 ```
+
+For a bundle, use `SloomPackage.openSlb(path: 'heroes.slb', load: loadAsset)`. Encrypted directory or bundle packages accept `key: SloomSymmetricKey.fromHex(...)`; `SloomAtlas` reads page variants through `SloomPackage.readFile`, so decryption happens before image decoding.
 
 `SloomPlayer` preloads every page used by the animation, then plays it with an `AnimationController`. `loop`, reverse, and ping-pong playback are handled from the animation document.
 

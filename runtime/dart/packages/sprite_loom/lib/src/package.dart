@@ -1,6 +1,10 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'cbor.dart';
+import 'crypto.dart';
+import 'slb.dart';
+
 typedef SloomFileLoader = Future<Uint8List> Function(String path);
 
 class SloomRect {
@@ -142,29 +146,75 @@ class SloomAnimationRef {
 }
 
 class SloomPackage {
-  SloomPackage._(this._manifest, this._containers, this._loader);
+  SloomPackage._(
+    this._manifest,
+    this._containers,
+    this._loader, {
+    Map<String, Uint8List>? files,
+    SloomSymmetricKey? key,
+  })  : _files = files,
+        _key = key;
 
   static const int _notRecorded = 0xffffffff;
 
   final Map<String, dynamic> _manifest;
   final Map<String, Map<String, dynamic>> _containers;
   final SloomFileLoader? _loader;
+  final Map<String, Uint8List>? _files;
+  final SloomSymmetricKey? _key;
   final Map<String, int> _uriIndices = {};
   final Map<int, SloomPage> _pageCache = {};
+
+  bool get hasFileSource => _loader != null || _files != null;
 
   static Future<SloomPackage> open({
     required String manifestPath,
     required SloomFileLoader load,
+    SloomSymmetricKey? key,
   }) async {
-    final manifest = _decodeObject(await load(manifestPath), manifestPath);
+    final manifest = _decodeObject(
+      await _readLogical(load, manifestPath, key),
+      manifestPath,
+    );
     final containers = <String, Map<String, dynamic>>{};
 
     for (final value in _mapList(manifest['pages'], 'pages')) {
       final container = _string(value['container'], 'container');
-      containers[container] = _decodeObject(await load(container), container);
+      containers[container] = _decodeObject(
+        await _readLogical(load, container, key),
+        container,
+      );
     }
 
-    final package = SloomPackage._(manifest, containers, load);
+    final package = SloomPackage._(manifest, containers, load, key: key);
+    package._validate();
+    return package;
+  }
+
+  static Future<SloomPackage> openSlb({
+    required String path,
+    required SloomFileLoader load,
+    SloomSymmetricKey? key,
+  }) async {
+    final archive = await readSlb(await load(path), key: key);
+    final containers = <String, Map<String, dynamic>>{};
+
+    for (final value in _mapList(archive.manifest['pages'], 'pages')) {
+      final container = _string(value['container'], 'container');
+      final bytes = archive.files[container];
+      if (bytes == null) {
+        throw StateError('Container not found in SLB: $container');
+      }
+      containers[container] = _decodeObject(bytes, container);
+    }
+
+    final package = SloomPackage._(
+      archive.manifest,
+      containers,
+      null,
+      files: archive.files,
+      key: key,
+    );
     package._validate();
     return package;
   }
@@ -178,8 +228,7 @@ class SloomPackage {
     return package;
   }
 
-  List<String> get uris =>
-      _stringList(_manifest['uris'], 'uris');
+  List<String> get uris => _stringList(_manifest['uris'], 'uris');
 
   int get pageCount => _mapList(_manifest['pages'], 'pages').length;
 
@@ -282,9 +331,26 @@ class SloomPackage {
     );
   }
 
-  Future<SloomAnimation> animation(String uri) async {
+  Future<Uint8List> readFile(String path) async {
+    final files = _files;
+    if (files != null) {
+      final bytes = files[path] ?? files['$path.senc'];
+      if (bytes == null) {
+        throw StateError('File not found in SLB: $path');
+      }
+      return bytes;
+    }
+
     final loader = _loader;
     if (loader == null) {
+      throw StateError('File loading requires a package opened from a source.');
+    }
+
+    return _readLogical(loader, path, _key);
+  }
+
+  Future<SloomAnimation> animation(String uri) async {
+    if (!hasFileSource) {
       throw StateError('Animation loading requires a package with a loader.');
     }
 
@@ -300,7 +366,8 @@ class SloomPackage {
       throw StateError('Unknown animation: $uri');
     }
 
-    final document = _decodeObject(await loader(reference.file), reference.file);
+    final document =
+        _decodeObject(await readFile(reference.file), reference.file);
     final frames = <String>[];
     for (final frame in _list(document['frames'], 'frames')) {
       if (frame is num) {
@@ -354,20 +421,81 @@ class SloomPackage {
 }
 
 Map<String, dynamic> _decodeObject(Uint8List bytes, String source) {
-  final value = jsonDecode(utf8.decode(bytes));
+  final logical = source.toLowerCase().endsWith('.senc')
+      ? source.substring(0, source.length - 5)
+      : source;
+  final value = logical.toLowerCase().endsWith('.cbor')
+      ? decodeCbor(bytes)
+      : jsonDecode(utf8.decode(bytes));
   if (value is! Map<String, dynamic>) {
-    throw FormatException('$source is not a JSON object.');
+    throw FormatException('$source is not an object.');
   }
   return value;
 }
 
+Future<Uint8List> _readLogical(
+  SloomFileLoader load,
+  String path,
+  SloomSymmetricKey? key,
+) async {
+  Uint8List? plain;
+  Object? firstError;
+
+  try {
+    plain = await load(path);
+  } catch (error) {
+    firstError = error;
+  }
+
+  if (plain != null) {
+    if (!_hasSencMagic(plain)) {
+      return plain;
+    }
+
+    if (key == null) {
+      throw StateError('SENC key required for $path.');
+    }
+
+    return decryptSenc(plain, key);
+  }
+
+  final encryptedPath = '$path.senc';
+  final encrypted = await load(encryptedPath);
+  if (key == null) {
+    throw StateError('SENC key required for $encryptedPath.');
+  }
+
+  if (firstError != null && !_hasSencMagic(encrypted)) {
+    throw FormatException('$path and $encryptedPath are not valid SENC files.');
+  }
+
+  return decryptSenc(encrypted, key);
+}
+
+bool _hasSencMagic(Uint8List bytes) =>
+    bytes.length >= 4 &&
+    bytes[0] == 0x53 &&
+    bytes[1] == 0x45 &&
+    bytes[2] == 0x4e &&
+    bytes[3] == 0x43;
+
 SloomDigest _digestValue(Object? value) {
   final map = _map(value, 'digest');
+  final raw = map['value'];
+  final digestValue = raw is String
+      ? raw
+      : raw is Uint8List
+          ? _hex(raw)
+          : throw const FormatException(
+              'digest value must be a string or byte string.');
   return SloomDigest(
     _string(map['alg'], 'digest alg'),
-    _string(map['value'], 'digest value'),
+    digestValue,
   );
 }
+
+String _hex(List<int> bytes) =>
+    bytes.map((value) => value.toRadixString(16).padLeft(2, '0')).join();
 
 Map<String, dynamic> _map(Object? value, String name) {
   if (value is! Map<String, dynamic>) {
@@ -383,9 +511,8 @@ List<Object?> _list(Object? value, String name) {
   return value;
 }
 
-List<Map<String, dynamic>> _mapList(Object? value, String name) => [
-      for (final item in _list(value, name)) _map(item, name)
-    ];
+List<Map<String, dynamic>> _mapList(Object? value, String name) =>
+    [for (final item in _list(value, name)) _map(item, name)];
 
 List<int> _intList(Object? value, int? expected, String name) {
   final list = _list(value, name);
@@ -394,7 +521,10 @@ List<int> _intList(Object? value, int? expected, String name) {
   }
   return [
     for (final item in list)
-      if (item is num) item.toInt() else throw FormatException('$name must contain numbers.')
+      if (item is num)
+        item.toInt()
+      else
+        throw FormatException('$name must contain numbers.')
   ];
 }
 
@@ -402,7 +532,10 @@ List<String> _stringList(Object? value, String name) {
   final list = _list(value, name);
   return [
     for (final item in list)
-      if (item is String) item else throw FormatException('$name must contain strings.')
+      if (item is String)
+        item
+      else
+        throw FormatException('$name must contain strings.')
   ];
 }
 

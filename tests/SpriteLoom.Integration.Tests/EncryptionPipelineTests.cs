@@ -180,6 +180,18 @@ public sealed class EncryptionPipelineTests
             Assert.Equal(0, inspectExit);
             Assert.Contains("Frames: 2", output.ToString(), StringComparison.Ordinal);
 
+            var manifestOutput = new StringWriter();
+            var manifestExit = await SpriteLoom.Commands.SloomCommandLine.RunAsync(
+                [
+                    "inspect",
+                    Path.Combine(result.OutputPath, "manifest.cbor"),
+                    "--decrypt-key",
+                    Path.Combine(keys, "asset.key")
+                ],
+                manifestOutput,
+                new StringWriter());
+            Assert.Equal(0, manifestExit);
+
             var verifyExit = await SpriteLoom.Commands.SloomCommandLine.RunAsync(
                 ["verify", result.OutputPath, "--key", Path.Combine(keys, "publisher.public.pem")],
                 new StringWriter(),

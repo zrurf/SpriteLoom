@@ -1,13 +1,13 @@
 # SpriteLoom Flutter runtime
 
-SpriteLoom ships a small Flutter loader for directory packages.
+SpriteLoom ships a small Flutter loader for directory packages and `.slb` bundles, with optional AES-256-GCM or XChaCha20-Poly1305 decryption.
 
 ## Packages
 
-- `sprite_loom` parses `manifest.json`, page containers, frame records, and animation documents.
+- `sprite_loom` parses JSON or CBOR directory packages, `.slb` bundles, page containers, frame records, animation documents, and encrypted payloads.
 - `sprite_loom_flutter` decodes page images and draws frames with `Canvas.drawImageRect`.
 
-The loader prefers `png` and `webp` page variants. KTX2/Basis variants are ignored until a GPU texture adapter is added; a package should therefore keep at least one raster variant.
+The loader prefers `png` and `webp` page variants. KTX2/Basis variants are ignored until a GPU texture adapter is added; a package should therefore keep at least one raster variant. `sprite_loom` depends on the pure-Dart `cryptography` package for decryption.
 
 ## Usage
 
@@ -22,7 +22,7 @@ Future<Uint8List> loadAsset(String path) async =>
     (await rootBundle.load('assets/atlas/$path')).buffer.asUint8List();
 
 final package = await SloomPackage.open(
-  manifestPath: 'manifest.json',
+  manifestPath: 'manifest.json', // or manifest.cbor
   load: loadAsset,
 );
 final atlas = SloomAtlas(package, load: loadAsset);
@@ -33,6 +33,26 @@ SloomPlayer(
   scale: 0.5,
 );
 ```
+
+For a `.slb` bundle, load the whole archive and pass an optional key:
+
+```dart
+final package = await SloomPackage.openSlb(
+  path: 'heroes.slb',
+  load: loadAsset,
+);
+
+final key = SloomSymmetricKey.fromHex(
+  await rootBundle.loadString('assets/atlas/asset.key'),
+);
+final encrypted = await SloomPackage.openSlb(
+  path: 'heroes.slb',
+  load: loadAsset,
+  key: key,
+);
+```
+
+Encrypted directory packages use `.senc` files on disk and the same optional `key` argument to `SloomPackage.open`. `SloomAtlas` uses `package.readFile`, so encrypted page variants are decrypted before image decoding.
 
 The package directory must be listed in `pubspec.yaml`:
 
