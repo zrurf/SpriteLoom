@@ -293,21 +293,14 @@ public static class SloomCommandLine
             {
                 output.WriteLine($"Package: {package.SourcePath}");
 
-                if (package.HasJsonManifest)
-                {
-                    PackageFiles? baseline = null;
+                PackageFiles? baseline = null;
 
-                    if (!string.IsNullOrWhiteSpace(options.BaselinePath))
-                    {
-                        baseline = PackageFiles.Open(options.BaselinePath, LoadDecryptionKey(options));
-                    }
-
-                    WriteStats(package, output, baseline);
-                }
-                else
+                if (!string.IsNullOrWhiteSpace(options.BaselinePath))
                 {
-                    output.WriteLine("Detailed statistics require a JSON manifest.");
+                    baseline = PackageFiles.Open(options.BaselinePath, LoadDecryptionKey(options));
                 }
+
+                WriteStats(package, output, baseline);
             }
         }
 
@@ -323,7 +316,7 @@ public static class SloomCommandLine
             return new PackageMetrics(total, new Dictionary<string, long>(StringComparer.Ordinal));
         }
 
-        using var manifest = JsonDocument.Parse(package.ManifestBytes);
+        using var manifest = JsonDocument.Parse(package.ManifestJson);
         var variants = new Dictionary<string, long>(StringComparer.Ordinal);
 
         foreach (var page in manifest.RootElement.GetProperty("pages").EnumerateArray())
@@ -355,7 +348,7 @@ public static class SloomCommandLine
 
     private static void WriteStats(PackageFiles package, TextWriter output, PackageFiles? baseline)
     {
-        using var manifest = JsonDocument.Parse(package.ManifestBytes);
+        using var manifest = JsonDocument.Parse(package.ManifestJson);
         var root = manifest.RootElement;
         var records = root.GetProperty("frames").GetProperty("records");
         var recordPages = records
@@ -366,28 +359,53 @@ public static class SloomCommandLine
         long usedArea = 0;
         long pageArea = 0;
         var storedCount = 0;
+        var storedAreas = new Dictionary<(int Page, int Stored), long>();
+        var pageIndex = 0;
 
         foreach (var page in root.GetProperty("pages").EnumerateArray())
         {
             var containerPath = page.GetProperty("container").GetString()!;
-            using var container = JsonDocument.Parse(package.Files[containerPath]);
+            using var container = JsonDocument.Parse(package.ToJson(containerPath));
             var size = page.GetProperty("size");
             pageArea += (long)size[0].GetInt32() * size[1].GetInt32();
+            var storedIndex = 0;
 
             foreach (var stored in container.RootElement.GetProperty("stored").EnumerateArray())
             {
                 var rect = stored.GetProperty("rect");
-                usedArea += (long)rect[2].GetInt32() * rect[3].GetInt32();
+                var area = (long)rect[2].GetInt32() * rect[3].GetInt32();
+                usedArea += area;
+                storedAreas[(pageIndex, storedIndex)] = area;
+                storedIndex++;
                 storedCount++;
+            }
+
+            pageIndex++;
+        }
+
+        long originArea = 0;
+        long recordStoredArea = 0;
+
+        foreach (var record in records.EnumerateArray())
+        {
+            var origin = record.GetProperty("origin");
+            originArea += (long)origin[0].GetInt32() * origin[1].GetInt32();
+            var key = (record.GetProperty("page").GetInt32(), record.GetProperty("stored").GetInt32());
+
+            if (storedAreas.TryGetValue(key, out var area))
+            {
+                recordStoredArea += area;
             }
         }
 
         var frameCount = records.GetArrayLength();
         var dedupRatio = frameCount == 0 ? 0 : 1.0 - (double)storedCount / frameCount;
         var utilization = pageArea == 0 ? 0 : (double)usedArea / pageArea;
+        var trimRatio = originArea == 0 ? 0 : 1.0 - (double)recordStoredArea / originArea;
 
         output.WriteLine($"Stored frames: {storedCount}");
         output.WriteLine($"Dedup ratio: {dedupRatio.ToString("P1", CultureInfo.InvariantCulture)}");
+        output.WriteLine($"Trim ratio: {trimRatio.ToString("P1", CultureInfo.InvariantCulture)}");
         output.WriteLine($"Page utilization: {utilization.ToString("P1", CultureInfo.InvariantCulture)}");
 
         var variantSizes = new SortedDictionary<string, long>(StringComparer.Ordinal);
@@ -439,7 +457,7 @@ public static class SloomCommandLine
         foreach (var animation in root.GetProperty("animations").EnumerateArray())
         {
             var animationPath = animation.GetProperty("file").GetString()!;
-            using var document = JsonDocument.Parse(package.Files[animationPath]);
+            using var document = JsonDocument.Parse(package.ToJson(animationPath));
             var frames = document.RootElement.GetProperty("frames");
             var switches = 0;
             var previousPage = -1;

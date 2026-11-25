@@ -40,6 +40,27 @@ public sealed class CliIntegrationTests
     }
 
     [Fact]
+    public async Task Inspect_stats_supports_cbor_manifests()
+    {
+        using var project = TestProject.Create("cbor", rasterFormats: ["webp"]);
+        var error = new StringWriter();
+
+        Assert.Equal(0, await SloomCommandLine.RunAsync(
+            ["pack", "--config", project.ConfigPath],
+            new StringWriter(),
+            error));
+
+        var output = new StringWriter();
+        Assert.Equal(0, await SloomCommandLine.RunAsync(
+            ["inspect", project.OutputPath, "--stats"],
+            output,
+            error));
+        Assert.Contains("Stored frames:", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("Trim ratio:", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("Variant webp:", output.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Inspect_compares_baseline_sizes()
     {
         using var project = TestProject.Create();

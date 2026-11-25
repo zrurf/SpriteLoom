@@ -78,6 +78,29 @@ public sealed class PackIntegrationTests
     }
 
     [Fact]
+    public async Task Pack_can_omit_the_png_fallback()
+    {
+        using var project = TestProject.Create(
+            rasterFormats: ["webp"],
+            pngFallback: false);
+        var result = await SloomApplication.Load(project.ConfigPath).PackAsync();
+        var pageDirectory = Path.Combine(result.OutputPath, "page", "0000.slatlas");
+
+        Assert.False(File.Exists(Path.Combine(pageDirectory, "v0.png")));
+        Assert.True(File.Exists(Path.Combine(pageDirectory, "v1.webp")));
+
+        using var manifest = JsonDocument.Parse(
+            File.ReadAllText(Path.Combine(result.OutputPath, "manifest.json")));
+        var variants = manifest.RootElement.GetProperty("pages")[0]
+            .GetProperty("variants")
+            .EnumerateArray()
+            .Select(value => value.GetProperty("id").GetString())
+            .ToArray();
+        Assert.DoesNotContain("png", variants);
+        Assert.Contains("webp", variants);
+    }
+
+    [Fact]
     public async Task Pack_supports_cbor_manifest()
     {
         using var project = TestProject.Create("cbor");

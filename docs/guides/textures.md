@@ -20,7 +20,16 @@ params = {
 }
 ```
 
-The manifest lists variants in output order. PNG is always the first variant; raster formats follow; GPU targets follow after that. A loader should try variants in order and fall back to the next one when a codec or GPU format is unsupported.
+The manifest lists variants in output order. PNG is the first variant by default; raster formats follow; GPU targets follow after that. Set `png-fallback = false` in the encode pass to omit the PNG variant when every target runtime can decode another listed format:
+
+```toml
+[[passes]]
+id = "encode"
+use = "encode.page"
+params = { formats = ["webp"], quality = 85, png-fallback = false }
+```
+
+A loader should try variants in order and fall back to the next one when a codec or GPU format is unsupported.
 
 ## Native encoder
 

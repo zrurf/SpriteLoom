@@ -94,6 +94,7 @@ public static class ProjectConfigLoader
         var trimParams = passes.TryGetValue("trim", out var trimPass) ? Table(trimPass, "params") : null;
         var encodeParams = passes.TryGetValue("encode", out var encodePass) ? Table(encodePass, "params") : null;
         var rasterFormats = ReadStringArray(encodeParams, "formats");
+        var pngFallback = Bool(encodeParams, "png-fallback", true);
         var bleedParams = passes.TryGetValue("bleed", out var bleedPass) ? Table(bleedPass, "params") : null;
         var bleedOptions = new BleedOptions(
             Int(bleedParams, "extrude", 1),
@@ -163,6 +164,7 @@ public static class ProjectConfigLoader
             TrimThreshold = Int(trimParams, "threshold", 1),
             RasterFormats = rasterFormats.Length > 0 ? rasterFormats : ["png"],
             RasterQuality = Int(encodeParams, "quality", 90),
+            PngFallback = pngFallback,
             BleedOptions = bleedOptions,
             TextureTargets = textureTargets,
             TexturePixelFormat = texturePixelFormat,

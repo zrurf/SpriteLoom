@@ -27,7 +27,8 @@ internal sealed class TestProject : IDisposable
         string? signingKey = null,
         IReadOnlyList<string>? textureTargets = null,
         bool mipmaps = false,
-        IReadOnlyList<string>? rasterFormats = null)
+        IReadOnlyList<string>? rasterFormats = null,
+        bool pngFallback = true)
     {
         var root = Path.Combine(Path.GetTempPath(), "sloom-it-" + Guid.NewGuid().ToString("N"));
         var runDirectory = Path.Combine(root, "art", "run");
@@ -49,7 +50,7 @@ internal sealed class TestProject : IDisposable
                 "[[passes]]\n" +
                 "id = \"encode\"\n" +
                 "use = \"encode.page\"\n" +
-                $"params = {{ formats = [{formats}], quality = 90 }}\n";
+                $"params = {{ formats = [{formats}], quality = 90, png-fallback = {pngFallback.ToString().ToLowerInvariant()} }}\n";
         }
 
         if (textureTargets is { Count: > 0 })

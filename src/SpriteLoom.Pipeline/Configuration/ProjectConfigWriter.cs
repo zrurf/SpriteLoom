@@ -117,8 +117,14 @@ public static class ProjectConfigWriter
         builder.Append("params = { formats = ")
             .Append(FormatArray(config.RasterFormats))
             .Append(", quality = ")
-            .Append(config.RasterQuality.ToString(CultureInfo.InvariantCulture))
-            .Append(" }\n");
+            .Append(config.RasterQuality.ToString(CultureInfo.InvariantCulture));
+
+        if (!config.PngFallback)
+        {
+            builder.Append(", png-fallback = false");
+        }
+
+        builder.Append(" }\n");
 
         if (config.TextureTargets.Count > 0 || config.Mipmaps)
         {

@@ -40,6 +40,7 @@ public sealed class ProjectConfigWriterTests
                 TrimThreshold = 3,
                 RasterFormats = ["png", "webp"],
                 RasterQuality = 75,
+                PngFallback = false,
                 BleedOptions = new BleedOptions(2, false),
                 TextureTargets = ["ktx2-astc6x6"],
                 TexturePixelFormat = PixelFormat.Rgba4444,
@@ -73,6 +74,7 @@ public sealed class ProjectConfigWriterTests
             Assert.Equal(3, loaded.TrimThreshold);
             Assert.Equal(["png", "webp"], loaded.RasterFormats);
             Assert.Equal(75, loaded.RasterQuality);
+            Assert.False(loaded.PngFallback);
             Assert.Equal(2, loaded.BleedOptions.Extrude);
             Assert.False(loaded.BleedOptions.AlphaDilate);
             Assert.Equal(["ktx2-astc6x6"], loaded.TextureTargets);

@@ -40,6 +40,7 @@ public static class BundleDiagnostics
     public const string CryptoKeyMismatch = "SL5043";
     public const string InvalidHeaderSize = "SL5044";
     public const string EncryptionFailed = "SL5045";
+    public const string UnsupportedCodec = "SL5046";
 
     public static InvalidDataException Error(string code, string message) =>
         new($"{code}: {message}");

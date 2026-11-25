@@ -30,6 +30,8 @@ public sealed class ProjectConfig
 
     public required int RasterQuality { get; init; }
 
+    public bool PngFallback { get; init; } = true;
+
     public required BleedOptions BleedOptions { get; init; }
 
     public required IReadOnlyList<string> TextureTargets { get; init; }

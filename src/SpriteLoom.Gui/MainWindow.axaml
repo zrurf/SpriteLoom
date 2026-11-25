@@ -412,6 +412,7 @@
                                Maximum="100"
                                Increment="1"
                                FormatString="0" />
+                <CheckBox Content="PNG fallback" IsChecked="{Binding Settings.PngFallback}" />
               </StackPanel>
 
               <StackPanel IsVisible="{Binding ShowTextureInspector}">

@@ -1,4 +1,5 @@
 using SpriteLoom.Bundle;
+using SpriteLoom.Model.Serialization;
 using SpriteLoom.Security;
 
 namespace SpriteLoom.Commands;
@@ -22,6 +23,13 @@ internal sealed class PackageFiles
     public string ManifestPath { get; }
 
     public byte[] ManifestBytes => Files[ManifestPath];
+
+    public byte[] ManifestJson => ToJson(ManifestPath);
+
+    public byte[] ToJson(string path) =>
+        path.EndsWith(".cbor", StringComparison.OrdinalIgnoreCase)
+            ? CborJsonConverter.ToJson(Files[path])
+            : Files[path];
 
     public bool HasJsonManifest => ManifestPath.EndsWith(".json", StringComparison.OrdinalIgnoreCase);
 

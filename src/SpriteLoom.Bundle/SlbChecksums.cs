@@ -47,6 +47,15 @@ internal static class SlbChecksums
         ReadOnlySpan<byte> file,
         int digestRegionOffset,
         SlbBlockEntry entry,
+        ReadOnlySpan<byte> content) =>
+        VerifyDigests(
+            file.Slice(digestRegionOffset + (int)entry.DigestOffset),
+            entry,
+            content);
+
+    public static void VerifyDigests(
+        ReadOnlySpan<byte> digestRegion,
+        SlbBlockEntry entry,
         ReadOnlySpan<byte> content)
     {
         var cursor = 0;
@@ -54,9 +63,7 @@ internal static class SlbChecksums
         foreach (var kind in HashAlgorithms.Expand(entry.ChecksumAlgorithms))
         {
             var length = HashAlgorithms.GetLength(kind);
-            var expected = file.Slice(
-                digestRegionOffset + (int)entry.DigestOffset + cursor,
-                length);
+            var expected = digestRegion.Slice(cursor, length);
             var actual = HashAlgorithms.Compute(kind, content);
 
             if (!actual.AsSpan().SequenceEqual(expected))

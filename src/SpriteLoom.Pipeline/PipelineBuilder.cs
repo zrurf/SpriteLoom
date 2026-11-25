@@ -100,7 +100,8 @@ public static class PipelineBuilder
             Inputs = Inputs(("in", "bleed.out")),
             Parameters = Parameters(
                 ("formats", config.RasterFormats),
-                ("quality", config.RasterQuality))
+                ("quality", config.RasterQuality),
+                ("pngFallback", config.PngFallback))
         });
 
         if (config.TextureTargets.Count > 0)

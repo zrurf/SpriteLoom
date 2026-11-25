@@ -28,10 +28,11 @@ public sealed class EncodePagesPass : IPass
         var pages = (ComposedPageSet)inputs["in"].Payload;
         var formats = PassParameters.GetStringList(context.Parameters, "formats");
         var quality = PassParameters.GetInt(context.Parameters, "quality", 90);
+        var pngFallback = PassParameters.GetBool(context.Parameters, "pngFallback", true);
 
         foreach (var page in pages.Pages)
         {
-            page.EncodedPng = _codec.EncodePng(page.Pixels);
+            page.EncodedPng = pngFallback ? _codec.EncodePng(page.Pixels) : null;
             page.Variants.Clear();
             var variantIndex = 1;
 
@@ -39,6 +40,7 @@ public sealed class EncodePagesPass : IPass
             {
                 if (string.Equals(format, "png", StringComparison.OrdinalIgnoreCase))
                 {
+                    page.EncodedPng ??= _codec.EncodePng(page.Pixels);
                     continue;
                 }
 

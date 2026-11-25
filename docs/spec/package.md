@@ -71,6 +71,19 @@ The header `EncryptedIndex` flag is reserved for encrypted indexes; current writ
 
 Directory packages use the standalone `.senc` container for each file. The manifest keeps logical paths; readers strip the `.senc` suffix after decryption. Directory signatures cover the stored `.senc` files, so signature verification does not require the symmetric key.
 
+## Memory-mapped reads
+
+`SlbMappedArchive` parses the header, block table, and index from a file and maps the payload instead of loading the whole bundle:
+
+```csharp
+using var archive = SlbMappedArchive.Open("build/heroes.slb", key, verifyDigests: true);
+
+var manifest = archive.ReadFile("manifest.cbor");
+using var page = archive.OpenFile("page/0000.slatlas/v0.webp");
+```
+
+Unencrypted `OpenFile` streams read through the mapped view lazily; encrypted blocks are decrypted on first access. `verifyDigests` validates block digests during the read. The archive must stay alive while a returned stream is in use.
+
 ## Determinism
 
 Given identical inputs and configuration, a package is byte-identical across runs. Passes sort their outputs with ordinal comparisons and avoid timestamps in normative content.

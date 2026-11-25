@@ -120,14 +120,14 @@ public sealed class BuildManifestPass : IPass
         {
             var page = encodedPages.Pages[pageIndex];
             var pageUri = PageUri(packageId, pageIndex);
-            var png = page.EncodedPng ?? throw new InvalidOperationException("Page has not been encoded.");
-            var pngPath = $"page/{pageIndex.ToString("D4", CultureInfo.InvariantCulture)}.slatlas/v0.png";
-            files[pngPath] = png;
+            var variants = new List<AtlasVariant>();
 
-            var variants = new List<AtlasVariant>
+            if (page.EncodedPng is not null)
             {
-                new("png", "png", pngPath, Digest.XxHash64(png))
-            };
+                var pngPath = $"page/{pageIndex.ToString("D4", CultureInfo.InvariantCulture)}.slatlas/v0.png";
+                files[pngPath] = page.EncodedPng;
+                variants.Add(new AtlasVariant("png", "png", pngPath, Digest.XxHash64(page.EncodedPng)));
+            }
 
             foreach (var raster in page.Variants)
             {
@@ -156,6 +156,11 @@ public sealed class BuildManifestPass : IPass
                         PixelFormat = texture.PixelFormat
                     });
                 }
+            }
+
+            if (variants.Count == 0)
+            {
+                throw new InvalidOperationException($"Page {pageIndex} has no encoded variants.");
             }
 
             var stored = pageStored[pageIndex].Select(globalIndex =>

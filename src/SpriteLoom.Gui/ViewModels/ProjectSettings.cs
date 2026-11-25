@@ -33,6 +33,7 @@ public sealed class ProjectSettings : ObservableObject
     private bool _alphaDilate = true;
     private string _rasterFormats = "png";
     private int _rasterQuality = 90;
+    private bool _pngFallback = true;
     private string _textureTargets = string.Empty;
     private string _texturePixelFormat = "rgba8888";
     private string _textureDither = "ordered4";
@@ -177,6 +178,12 @@ public sealed class ProjectSettings : ObservableObject
         set => Set(ref _rasterQuality, value);
     }
 
+    public bool PngFallback
+    {
+        get => _pngFallback;
+        set => Set(ref _pngFallback, value);
+    }
+
     public string TextureTargets
     {
         get => _textureTargets;
@@ -258,6 +265,7 @@ public sealed class ProjectSettings : ObservableObject
             AlphaDilate = config.BleedOptions.AlphaDilate,
             RasterFormats = string.Join(", ", config.RasterFormats),
             RasterQuality = config.RasterQuality,
+            PngFallback = config.PngFallback,
             TextureTargets = string.Join(", ", config.TextureTargets),
             TexturePixelFormat = PixelFormats.GetName(config.TexturePixelFormat),
             TextureDither = PixelFormats.GetDitherName(config.TextureDither),
@@ -472,6 +480,7 @@ public sealed class ProjectSettings : ObservableObject
             TrimThreshold = TrimThreshold,
             RasterFormats = rasterFormats,
             RasterQuality = RasterQuality,
+            PngFallback = PngFallback,
             BleedOptions = new BleedOptions(Extrude, AlphaDilate),
             TextureTargets = textureTargets,
             TexturePixelFormat = pixelFormat,
@@ -504,6 +513,7 @@ public sealed class ProjectSettings : ObservableObject
             AlphaDilate,
             RasterFormats,
             RasterQuality,
+            PngFallback,
             TextureTargets,
             TexturePixelFormat,
             TextureDither,
@@ -536,6 +546,7 @@ public sealed class ProjectSettings : ObservableObject
             AlphaDilate = snapshot.AlphaDilate,
             RasterFormats = snapshot.RasterFormats,
             RasterQuality = snapshot.RasterQuality,
+            PngFallback = snapshot.PngFallback,
             TextureTargets = snapshot.TextureTargets,
             TexturePixelFormat = snapshot.TexturePixelFormat,
             TextureDither = snapshot.TextureDither,
@@ -650,6 +661,7 @@ internal sealed record ProjectSnapshot(
     bool AlphaDilate,
     string RasterFormats,
     int RasterQuality,
+    bool PngFallback,
     string TextureTargets,
     string TexturePixelFormat,
     string TextureDither,
