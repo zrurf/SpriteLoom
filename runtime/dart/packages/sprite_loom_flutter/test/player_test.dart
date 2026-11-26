@@ -29,10 +29,7 @@ void main() {
     await tester.pumpWidget(
       Directionality(
         textDirection: TextDirection.ltr,
-        child: SloomPlayer(
-          atlas: atlas,
-          animationUri: 'anim://p/run',
-        ),
+        child: SloomPlayer(atlas: atlas, animationUri: 'anim://p/run'),
       ),
     );
 
@@ -75,10 +72,7 @@ void main() {
     await tester.pumpWidget(
       Directionality(
         textDirection: TextDirection.ltr,
-        child: SloomPlayer(
-          atlas: atlas,
-          animationUri: 'anim://p/run',
-        ),
+        child: SloomPlayer(atlas: atlas, animationUri: 'anim://p/run'),
       ),
     );
 
@@ -103,11 +97,7 @@ const manifest = {
   'format': 'sprite-loom',
   'format-major': 1,
   'format-minor': 0,
-  'uris': [
-    'anim://p/run',
-    'page://p/0000',
-    'frame://p/run/a',
-  ],
+  'uris': ['anim://p/run', 'page://p/0000', 'frame://p/run/a'],
   'pages': [
     {
       'uri': 1,
@@ -120,9 +110,9 @@ const manifest = {
           'codec': 'png',
           'file': 'page/0000.slatlas/v0.png',
           'digest': {'alg': 'xxh3-64', 'value': '00'},
-        }
+        },
       ],
-    }
+    },
   ],
   'frames': {
     'to-record': [0xffffffff, 0xffffffff, 0],
@@ -138,11 +128,7 @@ const manifest = {
     ],
   },
   'animations': [
-    {
-      'uri': 0,
-      'file': 'anim/run.anim.json',
-      'frame-count': 1,
-    }
+    {'uri': 0, 'file': 'anim/run.anim.json', 'frame-count': 1},
   ],
 };
 
@@ -194,7 +180,7 @@ const twoPageManifest = {
           'codec': 'png',
           'file': 'page/0000.slatlas/v0.png',
           'digest': {'alg': 'xxh3-64', 'value': '00'},
-        }
+        },
       ],
     },
     {
@@ -208,7 +194,7 @@ const twoPageManifest = {
           'codec': 'png',
           'file': 'page/0001.slatlas/v1.png',
           'digest': {'alg': 'xxh3-64', 'value': '00'},
-        }
+        },
       ],
     },
   ],
@@ -234,11 +220,7 @@ const twoPageManifest = {
     ],
   },
   'animations': [
-    {
-      'uri': 0,
-      'file': 'anim/run.anim.json',
-      'frame-count': 2,
-    }
+    {'uri': 0, 'file': 'anim/run.anim.json', 'frame-count': 2},
   ],
 };
 

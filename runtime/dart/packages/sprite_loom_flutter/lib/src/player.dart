@@ -73,14 +73,15 @@ class _SloomPlayerState extends State<SloomPlayer>
     final generation = ++_generation;
 
     try {
-      final animation =
-          await widget.atlas.package.animation(widget.animationUri);
+      final animation = await widget.atlas.package.animation(
+        widget.animationUri,
+      );
       if (!mounted || generation != _generation) {
         return;
       }
 
       final frames = [
-        for (final uri in animation.frameUris) widget.atlas.package.frame(uri)
+        for (final uri in animation.frameUris) widget.atlas.package.frame(uri),
       ];
       if (frames.isEmpty) {
         throw StateError('Animation has no frames: ${widget.animationUri}');
@@ -192,19 +193,22 @@ class _SloomPlayerState extends State<SloomPlayer>
     }
 
     _pendingPages.add(page);
-    widget.atlas.image(page).then(
-      (_) {
-        if (mounted) {
-          setState(() {});
-        }
-      },
-      onError: (Object error, StackTrace stack) {
-        _failedPages.add(page);
-        if (mounted) {
-          setState(() => _error = error.toString());
-        }
-      },
-    ).whenComplete(() => _pendingPages.remove(page));
+    widget.atlas
+        .image(page)
+        .then(
+          (_) {
+            if (mounted) {
+              setState(() {});
+            }
+          },
+          onError: (Object error, StackTrace stack) {
+            _failedPages.add(page);
+            if (mounted) {
+              setState(() => _error = error.toString());
+            }
+          },
+        )
+        .whenComplete(() => _pendingPages.remove(page));
   }
 
   @override
@@ -218,10 +222,7 @@ class _SloomPlayerState extends State<SloomPlayer>
   @override
   Widget build(BuildContext context) {
     if (_error != null) {
-      return Text(
-        _error!,
-        style: const TextStyle(color: Color(0xFFB00020)),
-      );
+      return Text(_error!, style: const TextStyle(color: Color(0xFFB00020)));
     }
 
     final frames = _frames;

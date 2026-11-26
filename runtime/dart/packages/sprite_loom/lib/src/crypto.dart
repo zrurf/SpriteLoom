@@ -2,13 +2,19 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
+import 'package:cryptography/dart.dart' show DartAesGcm;
+
+import 'sloom_aead_backend.dart';
 
 class SloomSymmetricKey {
   SloomSymmetricKey.fromBytes(List<int> bytes)
-      : bytes = Uint8List.fromList(bytes) {
+    : bytes = Uint8List.fromList(bytes) {
     if (this.bytes.length != 32) {
       throw ArgumentError.value(
-          this.bytes.length, 'bytes', 'Symmetric keys must be 32 bytes.');
+        this.bytes.length,
+        'bytes',
+        'Symmetric keys must be 32 bytes.',
+      );
     }
   }
 
@@ -19,15 +25,17 @@ class SloomSymmetricKey {
         : text;
     if (normalized.length != 64) {
       throw const FormatException(
-          'Symmetric key must contain 64 hex characters.');
+        'Symmetric key must contain 64 hex characters.',
+      );
     }
     return SloomSymmetricKey.fromBytes(
       List<int>.generate(
-          32,
-          (index) => int.parse(
-                normalized.substring(index * 2, index * 2 + 2),
-                radix: 16,
-              )),
+        32,
+        (index) => int.parse(
+          normalized.substring(index * 2, index * 2 + 2),
+          radix: 16,
+        ),
+      ),
     );
   }
 
@@ -35,6 +43,18 @@ class SloomSymmetricKey {
 }
 
 enum _SloomAead { aes256Gcm, xchacha20Poly1305 }
+
+/// Native AEAD capabilities of the current process.
+///
+/// AES-256-GCM is hardware accelerated only when libsodium reports AES-NI or
+/// ARM Crypto support; otherwise the pure-Dart implementation is used.
+abstract final class SloomCryptoCapabilities {
+  static bool get nativeAesGcm =>
+      (sloomAeadBackend?.aesGcmAvailable ?? false) ||
+      AesGcm.with256bits() is! DartAesGcm;
+
+  static bool get nativeXChaCha20Poly1305 => sloomAeadBackend != null;
+}
 
 Future<Uint8List> decryptSenc(Uint8List file, SloomSymmetricKey key) async {
   if (file.length < 36 || !_hasMagic(file, const [0x53, 0x45, 0x4e, 0x43])) {
@@ -100,12 +120,10 @@ Future<Uint8List> decryptSlbBlock({
   final infoData = ByteData.sublistView(info);
   infoData.setUint16(9, keyId, Endian.little);
   infoData.setUint32(11, blockId, Endian.little);
-  final keyMaterial =
-      await Hkdf(hmac: Hmac.sha256(), outputLength: 32).deriveKey(
-    secretKey: SecretKey(key.bytes),
-    nonce: salt,
-    info: info,
-  );
+  final keyMaterial = await Hkdf(
+    hmac: Hmac.sha256(),
+    outputLength: 32,
+  ).deriveKey(secretKey: SecretKey(key.bytes), nonce: salt, info: info);
   final blockKey = await keyMaterial.extractBytes();
 
   return _decryptChunks(
@@ -137,6 +155,32 @@ Future<Uint8List> _decryptChunks(
     throw const FormatException('Encrypted payload is truncated.');
   }
 
+  final backend = sloomAeadBackend;
+  if (backend != null) {
+    if (algorithm == _SloomAead.aes256Gcm &&
+        backend.aesGcmAvailable &&
+        noncePrefix.length == 4) {
+      return backend.decryptAesGcm(
+        ciphertext: ciphertext,
+        key: key,
+        noncePrefix: noncePrefix,
+        chunkSize: chunkSize,
+        chunkCount: chunkCount,
+        plaintextLength: plaintextLength,
+      );
+    }
+    if (algorithm == _SloomAead.xchacha20Poly1305 && noncePrefix.length == 16) {
+      return backend.decryptXChaCha20Poly1305(
+        ciphertext: ciphertext,
+        key: key,
+        noncePrefix: noncePrefix,
+        chunkSize: chunkSize,
+        chunkCount: chunkCount,
+        plaintextLength: plaintextLength,
+      );
+    }
+  }
+
   final output = Uint8List(plaintextLength);
   final algorithmImpl = algorithm == _SloomAead.aes256Gcm
       ? AesGcm.with256bits()
@@ -154,7 +198,10 @@ Future<Uint8List> _decryptChunks(
     final currentCiphertext = currentPlaintext + 16;
     nonceData.setUint64(noncePrefix.length, index, Endian.little);
     final chunk = Uint8List.sublistView(
-        ciphertext, inputOffset, inputOffset + currentCiphertext);
+      ciphertext,
+      inputOffset,
+      inputOffset + currentCiphertext,
+    );
     final secretBox = SecretBox(
       Uint8List.sublistView(chunk, 0, currentPlaintext),
       nonce: nonce,

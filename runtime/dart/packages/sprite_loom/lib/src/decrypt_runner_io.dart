@@ -15,24 +15,20 @@ Future<Uint8List> decryptSlbBlockInBackground({
   required int chunkSize,
   required int keyId,
   required int blockId,
-}) =>
-    _DecryptionWorker.instance.slb(
-      stored: stored,
-      rawSize: rawSize,
-      chunkCount: chunkCount,
-      keyBytes: keyBytes,
-      algorithmName: algorithmName,
-      salt: salt,
-      noncePrefix: noncePrefix,
-      chunkSize: chunkSize,
-      keyId: keyId,
-      blockId: blockId,
-    );
+}) => _DecryptionWorker.instance.slb(
+  stored: stored,
+  rawSize: rawSize,
+  chunkCount: chunkCount,
+  keyBytes: keyBytes,
+  algorithmName: algorithmName,
+  salt: salt,
+  noncePrefix: noncePrefix,
+  chunkSize: chunkSize,
+  keyId: keyId,
+  blockId: blockId,
+);
 
-Future<Uint8List> decryptSencInBackground(
-  Uint8List file,
-  Uint8List keyBytes,
-) =>
+Future<Uint8List> decryptSencInBackground(Uint8List file, Uint8List keyBytes) =>
     _DecryptionWorker.instance.senc(file, keyBytes);
 
 /// Reuses one background isolate so page loads do not pay isolate startup.
@@ -57,26 +53,22 @@ class _DecryptionWorker {
     required int chunkSize,
     required int keyId,
     required int blockId,
-  }) =>
-      _request({
-        'kind': 'slb',
-        'stored': stored,
-        'rawSize': rawSize,
-        'chunkCount': chunkCount,
-        'keyBytes': keyBytes,
-        'algorithmName': algorithmName,
-        'salt': salt,
-        'noncePrefix': noncePrefix,
-        'chunkSize': chunkSize,
-        'keyId': keyId,
-        'blockId': blockId,
-      });
+  }) => _request({
+    'kind': 'slb',
+    'stored': stored,
+    'rawSize': rawSize,
+    'chunkCount': chunkCount,
+    'keyBytes': keyBytes,
+    'algorithmName': algorithmName,
+    'salt': salt,
+    'noncePrefix': noncePrefix,
+    'chunkSize': chunkSize,
+    'keyId': keyId,
+    'blockId': blockId,
+  });
 
-  Future<Uint8List> senc(Uint8List file, Uint8List keyBytes) => _request({
-        'kind': 'senc',
-        'file': file,
-        'keyBytes': keyBytes,
-      });
+  Future<Uint8List> senc(Uint8List file, Uint8List keyBytes) =>
+      _request({'kind': 'senc', 'file': file, 'keyBytes': keyBytes});
 
   Future<Uint8List> _request(Map<String, Object> request) async {
     await _ensureStarted();
@@ -160,21 +152,21 @@ Future<void> _workerMain(SendPort outbound) async {
     try {
       final value = switch (message['kind']) {
         'slb' => await decryptSlbBlock(
-            stored: message['stored'] as Uint8List,
-            rawSize: message['rawSize'] as int,
-            chunkCount: message['chunkCount'] as int,
-            key: SloomSymmetricKey.fromBytes(message['keyBytes'] as Uint8List),
-            algorithmName: message['algorithmName'] as String,
-            salt: message['salt'] as Uint8List,
-            noncePrefix: message['noncePrefix'] as Uint8List,
-            chunkSize: message['chunkSize'] as int,
-            keyId: message['keyId'] as int,
-            blockId: message['blockId'] as int,
-          ),
+          stored: message['stored'] as Uint8List,
+          rawSize: message['rawSize'] as int,
+          chunkCount: message['chunkCount'] as int,
+          key: SloomSymmetricKey.fromBytes(message['keyBytes'] as Uint8List),
+          algorithmName: message['algorithmName'] as String,
+          salt: message['salt'] as Uint8List,
+          noncePrefix: message['noncePrefix'] as Uint8List,
+          chunkSize: message['chunkSize'] as int,
+          keyId: message['keyId'] as int,
+          blockId: message['blockId'] as int,
+        ),
         'senc' => await decryptSenc(
-            message['file'] as Uint8List,
-            SloomSymmetricKey.fromBytes(message['keyBytes'] as Uint8List),
-          ),
+          message['file'] as Uint8List,
+          SloomSymmetricKey.fromBytes(message['keyBytes'] as Uint8List),
+        ),
         _ => throw const FormatException('Unknown decryption request.'),
       };
       outbound.send(<String, Object>{'id': id, 'value': value});

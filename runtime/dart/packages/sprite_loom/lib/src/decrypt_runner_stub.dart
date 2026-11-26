@@ -13,22 +13,18 @@ Future<Uint8List> decryptSlbBlockInBackground({
   required int chunkSize,
   required int keyId,
   required int blockId,
-}) =>
-    decryptSlbBlock(
-      stored: stored,
-      rawSize: rawSize,
-      chunkCount: chunkCount,
-      key: SloomSymmetricKey.fromBytes(keyBytes),
-      algorithmName: algorithmName,
-      salt: salt,
-      noncePrefix: noncePrefix,
-      chunkSize: chunkSize,
-      keyId: keyId,
-      blockId: blockId,
-    );
+}) => decryptSlbBlock(
+  stored: stored,
+  rawSize: rawSize,
+  chunkCount: chunkCount,
+  key: SloomSymmetricKey.fromBytes(keyBytes),
+  algorithmName: algorithmName,
+  salt: salt,
+  noncePrefix: noncePrefix,
+  chunkSize: chunkSize,
+  keyId: keyId,
+  blockId: blockId,
+);
 
-Future<Uint8List> decryptSencInBackground(
-  Uint8List file,
-  Uint8List keyBytes,
-) =>
+Future<Uint8List> decryptSencInBackground(Uint8List file, Uint8List keyBytes) =>
     decryptSenc(file, SloomSymmetricKey.fromBytes(keyBytes));

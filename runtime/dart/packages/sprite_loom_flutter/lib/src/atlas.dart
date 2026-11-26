@@ -5,7 +5,7 @@ import 'package:sprite_loom/sprite_loom.dart';
 
 class SloomAtlas {
   SloomAtlas(this.package, {SloomFileLoader? load})
-      : _load = load ?? _assetLoader;
+    : _load = load ?? _assetLoader;
 
   final SloomPackage package;
   final SloomFileLoader _load;

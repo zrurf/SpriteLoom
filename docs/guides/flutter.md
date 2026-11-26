@@ -5,7 +5,7 @@ The Flutter runtime lives in `runtime/dart` and consists of two packages:
 - `sprite_loom` parses JSON/CBOR directory manifests, `.slb` bundles, page containers, frame records, animation documents, and encrypted `.senc` payloads.
 - `sprite_loom_flutter` decodes page images and draws frames with `Canvas.drawImageRect`.
 
-It targets Dart 3.6+ and Flutter 3.27+, and is tested with Flutter 3.50.
+It targets Dart 3.14+ and Flutter 3.50+.
 
 ## Asset setup
 
@@ -56,9 +56,9 @@ FutureBuilder<SloomAtlas>(
 )
 ```
 
-For a bundle, use `SloomPackage.openSlb(path: 'heroes.slb', load: loadAsset)`. Encrypted directory or bundle packages accept `key: SloomSymmetricKey.fromHex(...)`; `SloomAtlas` reads page variants through `SloomPackage.readFile`, so decryption happens before image decoding.
+For a bundle loaded as a Flutter asset, use `SloomPackage.openSlb(path: 'heroes.slb', load: loadAsset)`. For a downloaded or bundled file path, prefer `SloomPackage.openSlbFile(path, key: key)`: it memory-maps the file when possible, falls back to random-access reads, and only touches the blocks that are requested. Call `package.close()` after disposing the atlas. Encrypted directory or bundle packages accept `key: SloomSymmetricKey.fromHex(...)`; `SloomAtlas` reads page variants through `SloomPackage.readFile`, so decryption happens before image decoding.
 
-`SloomPlayer` waits only for the first page used by the animation, then starts with an `AnimationController` and decodes up to `prefetchAhead` upcoming pages in the background. The default is two pages; pass `prefetchAhead: 0` to decode only the page that is currently drawn, or call `SloomAtlas.preload` yourself for custom loading screens. `loop`, reverse, and ping-pong playback are handled from the animation document.
+`SloomPlayer` waits only for the first page used by the animation, then starts with an `AnimationController` and decodes up to `prefetchAhead` upcoming pages in the background. Encrypted packages use native libsodium for AES-256-GCM and XChaCha20-Poly1305 when the platform and CPU support it; decryption still runs in the shared background isolate. The default is two pages; pass `prefetchAhead: 0` to decode only the page that is currently drawn, or call `SloomAtlas.preload` yourself for custom loading screens. `loop`, reverse, and ping-pong playback are handled from the animation document.
 
 ## Coordinate model
 
@@ -70,4 +70,4 @@ The renderer prefers `png` and `webp` variants and ignores `ktx2` variants. Keep
 
 ## Large clips
 
-Full-body clips can span many pages. Pack one state per package when app size matters; the loader then downloads or bundles only the pages for the active state. An encrypted `.slb` archive is decrypted on demand: manifest and page containers are read up front, while image blocks are decrypted through a persistent background isolate only when a page is decoded.
+Full-body clips can span many pages. Pack one state per package when app size matters; the loader then downloads or bundles only the pages for the active state. An encrypted `.slb` archive is decrypted on demand: manifest and page containers are read up front, while image blocks are decrypted through a persistent background isolate only when a page is decoded. `openSlbFile` additionally avoids reading the payload into the Dart heap, so a multi-hundred-megabyte bundle stays backed by the OS page cache or file.

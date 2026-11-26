@@ -1,2 +1,2 @@
 export 'src/package.dart';
-export 'src/crypto.dart' show SloomSymmetricKey;
+export 'src/crypto.dart' show SloomCryptoCapabilities, SloomSymmetricKey;

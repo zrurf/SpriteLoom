@@ -7,7 +7,9 @@ SpriteLoom ships a small Flutter loader for directory packages and `.slb` bundle
 - `sprite_loom` parses JSON or CBOR directory packages, `.slb` bundles, page containers, frame records, animation documents, and encrypted payloads.
 - `sprite_loom_flutter` decodes page images and draws frames with `Canvas.drawImageRect`.
 
-The loader prefers `png` and `webp` page variants. KTX2/Basis variants are ignored until a GPU texture adapter is added; a package should therefore keep at least one raster variant. `sprite_loom` depends on the pure-Dart `cryptography` package for decryption.
+Dart 3.14+ and Flutter 3.50+ are required by the `sodium` dependency.
+
+The loader prefers `png` and `webp` page variants. KTX2/Basis variants are ignored until a GPU texture adapter is added; a package should therefore keep at least one raster variant. `sprite_loom` uses `package:sodium` for native AES-256-GCM and XChaCha20-Poly1305, with the pure-Dart `cryptography` package as a fallback.
 
 ## Usage
 
@@ -34,25 +36,32 @@ SloomPlayer(
 );
 ```
 
-For a `.slb` bundle, load the whole archive and pass an optional key:
+For a `.slb` bundle loaded through an asset loader, pass the whole archive:
 
 ```dart
 final package = await SloomPackage.openSlb(
   path: 'heroes.slb',
   load: loadAsset,
 );
+```
 
+For a local file, use random access instead. `openSlbFile` prefers a read-only
+mmap and falls back to queued `RandomAccessFile` reads:
+
+```dart
 final key = SloomSymmetricKey.fromHex(
   await rootBundle.loadString('assets/atlas/asset.key'),
 );
-final encrypted = await SloomPackage.openSlb(
-  path: 'heroes.slb',
-  load: loadAsset,
+final package = await SloomPackage.openSlbFile(
+  'downloaded/heroes.slb',
   key: key,
 );
+print(package.storageKind); // mmap, file, or memory
+// ...
+await package.close();
 ```
 
-Encrypted directory packages use `.senc` files on disk and the same optional `key` argument to `SloomPackage.open`. `SloomAtlas` uses `package.readFile`, so encrypted page variants are decrypted before image decoding. Encrypted `.slb` image blocks stay encrypted in memory until the page is needed; decryption runs in a shared background isolate instead of blocking the UI isolate.
+Encrypted directory packages use `.senc` files on disk and the same optional `key` argument to `SloomPackage.open`. `SloomAtlas` uses `package.readFile`, so encrypted page variants are decrypted before image decoding. Encrypted `.slb` image blocks stay encrypted until the page is needed; decryption runs in a shared background isolate instead of blocking the UI isolate. The isolate uses the native libsodium backend when the CPU supports it, so AES-GCM can use AES-NI or ARM Crypto extensions and XChaCha20-Poly1305 stays native. `package:sodium` does not expose AES-256-GCM in its high-level AEAD API, so the backend calls the package's exported `LibSodiumFFI` bindings and uses its `sodiumScope` memory helpers; libsodium itself is still built and loaded by the pub package. If libsodium is unavailable or lacks AES hardware support, the pure-Dart implementation is used. Check the active backend with `SloomCryptoCapabilities.nativeAesGcm` and `SloomCryptoCapabilities.nativeXChaCha20Poly1305`. A file-backed package must be closed after its atlas is disposed.
 
 The package directory must be listed in `pubspec.yaml`:
 
@@ -66,7 +75,7 @@ Frames are drawn in their original frame coordinates: the stored rectangle is pl
 
 ## Large clips
 
-Full-body clips can use many pages. Packing one state per package keeps app assets small and lets a Flutter app load only the pages for the active state. `SloomPlayer` waits for the first page and then prefetches a bounded number of upcoming pages (`prefetchAhead`, default 2); it no longer decodes every page in the animation before playback starts.
+Full-body clips can use many pages. Packing one state per package keeps app assets small and lets a Flutter app load only the pages for the active state. `SloomPlayer` waits for the first page and then prefetches a bounded number of upcoming pages (`prefetchAhead`, default 2); it no longer decodes every page in the animation before playback starts. `openSlbFile` avoids loading the whole bundle: only the header, block table, index, manifest, page containers, and requested image blocks are read.
 
 ## Layout
 
