@@ -142,6 +142,9 @@ Future<Uint8List> _decryptChunks(
       ? AesGcm.with256bits()
       : Xchacha20.poly1305Aead();
   final secretKey = SecretKey(key);
+  final nonce = Uint8List(noncePrefix.length + 8)
+    ..setRange(0, noncePrefix.length, noncePrefix);
+  final nonceData = ByteData.sublistView(nonce);
   var inputOffset = 0;
   var outputOffset = 0;
   var remaining = plaintextLength;
@@ -149,16 +152,13 @@ Future<Uint8List> _decryptChunks(
   for (var index = 0; index < chunkCount; index++) {
     final currentPlaintext = remaining < chunkSize ? remaining : chunkSize;
     final currentCiphertext = currentPlaintext + 16;
-    final nonce = Uint8List(noncePrefix.length + 8);
-    nonce.setRange(0, noncePrefix.length, noncePrefix);
-    ByteData.sublistView(nonce)
-        .setUint64(noncePrefix.length, index, Endian.little);
+    nonceData.setUint64(noncePrefix.length, index, Endian.little);
     final chunk = Uint8List.sublistView(
         ciphertext, inputOffset, inputOffset + currentCiphertext);
     final secretBox = SecretBox(
-      chunk.sublist(0, currentPlaintext),
+      Uint8List.sublistView(chunk, 0, currentPlaintext),
       nonce: nonce,
-      mac: Mac(chunk.sublist(currentPlaintext)),
+      mac: Mac(Uint8List.sublistView(chunk, currentPlaintext)),
     );
     final plain = await algorithmImpl.decrypt(secretBox, secretKey: secretKey);
     output.setRange(outputOffset, outputOffset + currentPlaintext, plain);

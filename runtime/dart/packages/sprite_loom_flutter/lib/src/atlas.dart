@@ -10,30 +10,48 @@ class SloomAtlas {
   final SloomPackage package;
   final SloomFileLoader _load;
   final Map<int, Future<ui.Image>> _images = {};
+  final Map<int, ui.Image> _loaded = {};
+  bool _disposed = false;
 
-  Future<ui.Image> image(int page) =>
-      _images.putIfAbsent(page, () => _loadPage(page));
+  /// Decodes one page once; concurrent callers share the same future.
+  Future<ui.Image> image(int page) {
+    if (_disposed) {
+      throw StateError('SloomAtlas has been disposed.');
+    }
 
-  ui.Image? imageIfLoaded(int page) {
-    // Images are loaded through futures; the renderer calls preload before draw.
-    return _loaded[page];
+    return _images.putIfAbsent(page, () => _loadAndStore(page));
   }
 
-  final Map<int, ui.Image> _loaded = {};
+  bool isLoaded(int page) => _loaded.containsKey(page);
 
+  ui.Image? imageIfLoaded(int page) => _loaded[page];
+
+  /// Loads only the requested pages. Playback does not call this for a whole
+  /// animation; [SloomPlayer] starts with the first page and prefetches ahead.
   Future<void> preload(Iterable<int> pages) async {
     for (final page in pages.toSet()) {
-      final decoded = await image(page);
-      _loaded[page] = decoded;
+      await image(page);
     }
   }
 
   void dispose() {
+    _disposed = true;
     for (final image in _loaded.values) {
       image.dispose();
     }
     _loaded.clear();
     _images.clear();
+  }
+
+  Future<ui.Image> _loadAndStore(int page) async {
+    final decoded = await _loadPage(page);
+    if (_disposed) {
+      decoded.dispose();
+      throw StateError('SloomAtlas has been disposed.');
+    }
+
+    _loaded[page] = decoded;
+    return decoded;
   }
 
   Future<ui.Image> _loadPage(int page) async {
@@ -45,11 +63,15 @@ class SloomAtlas {
     }
 
     final bytes = package.hasFileSource
-        ? await package.readFile(variant.file)
+        ? await package.readFile(variant.file, cache: false)
         : await _load(variant.file);
     final codec = await ui.instantiateImageCodec(bytes);
-    final frame = await codec.getNextFrame();
-    return frame.image;
+    try {
+      final frame = await codec.getNextFrame();
+      return frame.image;
+    } finally {
+      codec.dispose();
+    }
   }
 
   static SloomVariant? _pickVariant(SloomPage page) {

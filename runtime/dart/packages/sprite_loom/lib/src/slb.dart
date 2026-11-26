@@ -3,17 +3,97 @@ import 'dart:typed_data';
 
 import 'cbor.dart';
 import 'crypto.dart';
+import 'decrypt_runner.dart';
 
 class SloomSlbArchive {
-  const SloomSlbArchive({
-    required this.manifest,
-    required this.files,
-    required this.manifestPath,
-  });
+  SloomSlbArchive._({
+    required Uint8List bytes,
+    required String manifestPath,
+    required Map<int, _SlbBlock> blocks,
+    required Map<String, int> paths,
+    required Map<int, _SlbCrypto> crypto,
+    required SloomSymmetricKey? key,
+  })  : _bytes = bytes,
+        manifestPath = manifestPath,
+        _blocks = blocks,
+        _paths = paths,
+        _crypto = crypto,
+        _key = key;
 
-  final Map<String, dynamic> manifest;
-  final Map<String, Uint8List> files;
+  final Uint8List _bytes;
   final String manifestPath;
+  final Map<int, _SlbBlock> _blocks;
+  final Map<String, int> _paths;
+  final Map<int, _SlbCrypto> _crypto;
+  final SloomSymmetricKey? _key;
+  final Map<String, Uint8List> _cache = {};
+
+  late final Map<String, dynamic> manifest;
+
+  bool contains(String path) => _paths.containsKey(path);
+
+  Future<Uint8List> readFile(String path, {bool cache = true}) async {
+    final cached = _cache[path];
+    if (cached != null) {
+      return cached;
+    }
+
+    final blockId = _paths[path];
+    if (blockId == null) {
+      throw StateError('File not found in SLB: $path');
+    }
+
+    final block = _blocks[blockId]!;
+    final stored = Uint8List.sublistView(
+      _bytes,
+      block.offset,
+      block.offset + block.storedSize,
+    );
+
+    Uint8List content;
+    if ((block.flags & 2) == 0) {
+      content = stored;
+    } else {
+      final key = _key;
+      if (key == null) {
+        throw StateError(
+            'SL5022: SLB block ${block.blockId} is encrypted; a key is required.');
+      }
+
+      final metadata = _crypto[block.keyId];
+      if (metadata == null) {
+        throw FormatException(
+            'SLB block ${block.blockId} has no crypto metadata.');
+      }
+      if (metadata.kdf != 'hkdf-sha256') {
+        throw FormatException('Unsupported SLB KDF: ${metadata.kdf}');
+      }
+
+      content = await decryptSlbBlockInBackground(
+        stored: stored,
+        rawSize: block.rawSize,
+        chunkCount: block.chunkCount,
+        keyBytes: key.bytes,
+        algorithmName: metadata.algorithm,
+        salt: metadata.salt,
+        noncePrefix: metadata.noncePrefix,
+        chunkSize: metadata.chunkSize,
+        keyId: metadata.keyId,
+        blockId: block.blockId,
+      );
+    }
+
+    if (cache) {
+      _cache[path] = content;
+    }
+    return content;
+  }
+
+  Future<void> preloadAll() async {
+    for (final path in _paths.keys) {
+      await readFile(path);
+    }
+  }
 }
 
 class _SlbBlock {
@@ -57,6 +137,15 @@ class _SlbCrypto {
 }
 
 Future<SloomSlbArchive> readSlb(
+  Uint8List bytes, {
+  SloomSymmetricKey? key,
+}) async {
+  final archive = await readSlbLazy(bytes, key: key);
+  await archive.preloadAll();
+  return archive;
+}
+
+Future<SloomSlbArchive> readSlbLazy(
   Uint8List bytes, {
   SloomSymmetricKey? key,
 }) async {
@@ -130,6 +219,7 @@ Future<SloomSlbArchive> readSlb(
   final cryptoEntries =
       _asMapList(index['crypto'] ?? const [], 'SLB index crypto');
   final crypto = <int, _SlbCrypto>{};
+  final paths = <String, int>{};
 
   for (final value in cryptoEntries) {
     final entry = _SlbCrypto(
@@ -145,69 +235,40 @@ Future<SloomSlbArchive> readSlb(
     crypto[entry.keyId] = entry;
   }
 
-  final files = <String, Uint8List>{};
   for (final entry in fileEntries) {
     final path = _asString(entry['path'], 'file path');
     final blockId = _asInt(entry['block'], 'file block');
-    final block = blocks[blockId];
-    if (block == null) {
+    if (!blocks.containsKey(blockId)) {
       throw FormatException('SLB index references missing block $blockId.');
     }
-
-    final stored = Uint8List.sublistView(
-      bytes,
-      block.offset,
-      block.offset + block.storedSize,
-    );
-
-    if ((block.flags & 2) == 0) {
-      files[path] = Uint8List.fromList(stored);
-      continue;
-    }
-
-    if (key == null) {
-      throw StateError(
-          'SL5022: SLB block ${block.blockId} is encrypted; a key is required.');
-    }
-
-    final metadata = crypto[block.keyId];
-    if (metadata == null) {
-      throw FormatException(
-          'SLB block ${block.blockId} has no crypto metadata.');
-    }
-    if (metadata.kdf != 'hkdf-sha256') {
-      throw FormatException('Unsupported SLB KDF: ${metadata.kdf}');
-    }
-
-    files[path] = await decryptSlbBlock(
-      stored: stored,
-      rawSize: block.rawSize,
-      chunkCount: block.chunkCount,
-      key: key,
-      algorithmName: metadata.algorithm,
-      salt: metadata.salt,
-      noncePrefix: metadata.noncePrefix,
-      chunkSize: metadata.chunkSize,
-      keyId: metadata.keyId,
-      blockId: block.blockId,
-    );
+    paths[path] = blockId;
   }
 
-  final manifestPath = files.containsKey('manifest.cbor')
+  final manifestPath = paths.containsKey('manifest.cbor')
       ? 'manifest.cbor'
-      : files.containsKey('manifest.json')
+      : paths.containsKey('manifest.json')
           ? 'manifest.json'
           : null;
   if (manifestPath == null) {
     throw const FormatException('SLB does not contain a manifest.');
   }
 
-  return SloomSlbArchive(
-    manifest:
-        _asMap(_decodeDocument(files[manifestPath]!, manifestPath), 'manifest'),
-    files: files,
+  final archive = SloomSlbArchive._(
+    bytes: bytes,
     manifestPath: manifestPath,
+    blocks: blocks,
+    paths: paths,
+    crypto: crypto,
+    key: key,
   );
+  archive.manifest = _asMap(
+    _decodeDocument(
+      await archive.readFile(manifestPath, cache: false),
+      manifestPath,
+    ),
+    'manifest',
+  );
+  return archive;
 }
 
 Object? _decodeDocument(Uint8List bytes, String path) =>
@@ -216,8 +277,11 @@ Object? _decodeDocument(Uint8List bytes, String path) =>
         : jsonDecode(utf8.decode(bytes));
 
 Map<String, dynamic> _asMap(Object? value, String name) {
+  if (value == null) {
+    throw FormatException('$name');
+  }
   if (value is! Map<String, dynamic>) {
-    throw FormatException('$name must be an object.');
+    throw const FormatException('Expected an object.');
   }
   return value;
 }

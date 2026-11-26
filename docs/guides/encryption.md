@@ -88,7 +88,7 @@ var key = SymmetricKey.Load("keys/asset.key");
 var archive = SlbReader.ReadFile("build/heroes.slb", decryptionKey: key);
 ```
 
-The Dart and TypeScript runtimes expose the same flow. Dart uses `SloomPackage.openSlb(..., key: key)` or `open(..., key: key)` for encrypted directories; TypeScript uses `SloomPackage.openSlb(url, { key })`, `SloomPackage.fromSlb(bytes, key)`, or `SloomPackage.open(url, { key })`. Both expose `readFile(path)` for page variants, which decrypts `.senc` files before image decoding.
+The Dart and TypeScript runtimes expose the same flow. Dart uses `SloomPackage.openSlb(..., key: key)` or `open(..., key: key)` for encrypted directories; TypeScript uses `SloomPackage.openSlb(url, { key })`, `SloomPackage.fromSlb(bytes, key)`, or `SloomPackage.open(url, { key })`. Both expose `readFile(path)` for page variants, which decrypts `.senc` files before image decoding. The Dart bundle reader keeps encrypted image blocks untouched until a page is requested and runs block decryption in a shared background isolate, so opening a large encrypted `.slb` does not decrypt the whole payload on the UI isolate.
 
 Without a key, the reader reports `SL5022`. A key with the wrong id reports `SL5043`, and a failed authentication tag reports `SL5045`.
 

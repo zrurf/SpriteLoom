@@ -52,7 +52,7 @@ final encrypted = await SloomPackage.openSlb(
 );
 ```
 
-Encrypted directory packages use `.senc` files on disk and the same optional `key` argument to `SloomPackage.open`. `SloomAtlas` uses `package.readFile`, so encrypted page variants are decrypted before image decoding.
+Encrypted directory packages use `.senc` files on disk and the same optional `key` argument to `SloomPackage.open`. `SloomAtlas` uses `package.readFile`, so encrypted page variants are decrypted before image decoding. Encrypted `.slb` image blocks stay encrypted in memory until the page is needed; decryption runs in a shared background isolate instead of blocking the UI isolate.
 
 The package directory must be listed in `pubspec.yaml`:
 
@@ -66,7 +66,7 @@ Frames are drawn in their original frame coordinates: the stored rectangle is pl
 
 ## Large clips
 
-Full-body clips can use many pages. Packing one state per package keeps app assets small and lets a Flutter app load only the pages for the active state. The current renderer loads every page used by the selected animation before playback starts.
+Full-body clips can use many pages. Packing one state per package keeps app assets small and lets a Flutter app load only the pages for the active state. `SloomPlayer` waits for the first page and then prefetches a bounded number of upcoming pages (`prefetchAhead`, default 2); it no longer decodes every page in the animation before playback starts.
 
 ## Layout
 

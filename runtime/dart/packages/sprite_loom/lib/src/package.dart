@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'cbor.dart';
 import 'crypto.dart';
+import 'decrypt_runner.dart';
 import 'slb.dart';
 
 typedef SloomFileLoader = Future<Uint8List> Function(String path);
@@ -150,9 +151,9 @@ class SloomPackage {
     this._manifest,
     this._containers,
     this._loader, {
-    Map<String, Uint8List>? files,
+    SloomSlbArchive? slb,
     SloomSymmetricKey? key,
-  })  : _files = files,
+  })  : _slb = slb,
         _key = key;
 
   static const int _notRecorded = 0xffffffff;
@@ -160,12 +161,12 @@ class SloomPackage {
   final Map<String, dynamic> _manifest;
   final Map<String, Map<String, dynamic>> _containers;
   final SloomFileLoader? _loader;
-  final Map<String, Uint8List>? _files;
+  final SloomSlbArchive? _slb;
   final SloomSymmetricKey? _key;
   final Map<String, int> _uriIndices = {};
   final Map<int, SloomPage> _pageCache = {};
 
-  bool get hasFileSource => _loader != null || _files != null;
+  bool get hasFileSource => _loader != null || _slb != null;
 
   static Future<SloomPackage> open({
     required String manifestPath,
@@ -196,23 +197,25 @@ class SloomPackage {
     required SloomFileLoader load,
     SloomSymmetricKey? key,
   }) async {
-    final archive = await readSlb(await load(path), key: key);
+    final archive = await readSlbLazy(await load(path), key: key);
     final containers = <String, Map<String, dynamic>>{};
 
     for (final value in _mapList(archive.manifest['pages'], 'pages')) {
       final container = _string(value['container'], 'container');
-      final bytes = archive.files[container];
-      if (bytes == null) {
+      if (!archive.contains(container)) {
         throw StateError('Container not found in SLB: $container');
       }
-      containers[container] = _decodeObject(bytes, container);
+      containers[container] = _decodeObject(
+        await archive.readFile(container, cache: false),
+        container,
+      );
     }
 
     final package = SloomPackage._(
       archive.manifest,
       containers,
       null,
-      files: archive.files,
+      slb: archive,
       key: key,
     );
     package._validate();
@@ -331,14 +334,10 @@ class SloomPackage {
     );
   }
 
-  Future<Uint8List> readFile(String path) async {
-    final files = _files;
-    if (files != null) {
-      final bytes = files[path] ?? files['$path.senc'];
-      if (bytes == null) {
-        throw StateError('File not found in SLB: $path');
-      }
-      return bytes;
+  Future<Uint8List> readFile(String path, {bool cache = true}) async {
+    final slb = _slb;
+    if (slb != null) {
+      return slb.readFile(path, cache: cache);
     }
 
     final loader = _loader;
@@ -456,7 +455,7 @@ Future<Uint8List> _readLogical(
       throw StateError('SENC key required for $path.');
     }
 
-    return decryptSenc(plain, key);
+    return decryptSencInBackground(plain, key.bytes);
   }
 
   final encryptedPath = '$path.senc';
@@ -469,7 +468,7 @@ Future<Uint8List> _readLogical(
     throw FormatException('$path and $encryptedPath are not valid SENC files.');
   }
 
-  return decryptSenc(encrypted, key);
+  return decryptSencInBackground(encrypted, key.bytes);
 }
 
 bool _hasSencMagic(Uint8List bytes) =>

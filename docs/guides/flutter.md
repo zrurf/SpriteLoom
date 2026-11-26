@@ -58,7 +58,7 @@ FutureBuilder<SloomAtlas>(
 
 For a bundle, use `SloomPackage.openSlb(path: 'heroes.slb', load: loadAsset)`. Encrypted directory or bundle packages accept `key: SloomSymmetricKey.fromHex(...)`; `SloomAtlas` reads page variants through `SloomPackage.readFile`, so decryption happens before image decoding.
 
-`SloomPlayer` preloads every page used by the animation, then plays it with an `AnimationController`. `loop`, reverse, and ping-pong playback are handled from the animation document.
+`SloomPlayer` waits only for the first page used by the animation, then starts with an `AnimationController` and decodes up to `prefetchAhead` upcoming pages in the background. The default is two pages; pass `prefetchAhead: 0` to decode only the page that is currently drawn, or call `SloomAtlas.preload` yourself for custom loading screens. `loop`, reverse, and ping-pong playback are handled from the animation document.
 
 ## Coordinate model
 
@@ -70,4 +70,4 @@ The renderer prefers `png` and `webp` variants and ignores `ktx2` variants. Keep
 
 ## Large clips
 
-Full-body clips can span many pages. Pack one state per package when app size matters; the loader then downloads or bundles only the pages for the active state.
+Full-body clips can span many pages. Pack one state per package when app size matters; the loader then downloads or bundles only the pages for the active state. An encrypted `.slb` archive is decrypted on demand: manifest and page containers are read up front, while image blocks are decrypted through a persistent background isolate only when a page is decoded.
