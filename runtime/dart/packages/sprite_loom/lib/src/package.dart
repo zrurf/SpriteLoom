@@ -5,6 +5,7 @@ import 'cbor.dart';
 import 'crypto.dart';
 import 'decrypt_runner.dart';
 import 'slb.dart';
+import 'slb_file_source.dart';
 
 typedef SloomFileLoader = Future<Uint8List> Function(String path);
 
@@ -153,8 +154,8 @@ class SloomPackage {
     this._loader, {
     SloomSlbArchive? slb,
     SloomSymmetricKey? key,
-  })  : _slb = slb,
-        _key = key;
+  }) : _slb = slb,
+       _key = key;
 
   static const int _notRecorded = 0xffffffff;
 
@@ -167,6 +168,14 @@ class SloomPackage {
   final Map<int, SloomPage> _pageCache = {};
 
   bool get hasFileSource => _loader != null || _slb != null;
+
+  /// `memory`, `file`, or `mmap` for SLB packages; null for directory packages.
+  String? get storageKind => _slb?.storageKind;
+
+  /// Releases a file-backed SLB source. Directory packages are unaffected.
+  Future<void> close() async {
+    await _slb?.close();
+  }
 
   static Future<SloomPackage> open({
     required String manifestPath,
@@ -198,28 +207,60 @@ class SloomPackage {
     SloomSymmetricKey? key,
   }) async {
     final archive = await readSlbLazy(await load(path), key: key);
-    final containers = <String, Map<String, dynamic>>{};
+    return _fromSlbArchive(archive, key);
+  }
 
-    for (final value in _mapList(archive.manifest['pages'], 'pages')) {
-      final container = _string(value['container'], 'container');
-      if (!archive.contains(container)) {
-        throw StateError('Container not found in SLB: $container');
-      }
-      containers[container] = _decodeObject(
-        await archive.readFile(container, cache: false),
-        container,
-      );
+  /// Opens a local `.slb` file without loading its payload into memory.
+  ///
+  /// [preferMmap] uses a read-only memory map when available and falls back to
+  /// queued random-access reads. Only the header, block table, index,
+  /// manifest, page containers, and requested blocks are read.
+  static Future<SloomPackage> openSlbFile(
+    String path, {
+    SloomSymmetricKey? key,
+    bool preferMmap = true,
+  }) async {
+    final source = await openSlbFileSource(path, preferMmap: preferMmap);
+    try {
+      final archive = await readSlbSource(source, key: key);
+      return await _fromSlbArchive(archive, key);
+    } catch (_) {
+      await source.close();
+      rethrow;
     }
+  }
 
-    final package = SloomPackage._(
-      archive.manifest,
-      containers,
-      null,
-      slb: archive,
-      key: key,
-    );
-    package._validate();
-    return package;
+  static Future<SloomPackage> _fromSlbArchive(
+    SloomSlbArchive archive,
+    SloomSymmetricKey? key,
+  ) async {
+    try {
+      final containers = <String, Map<String, dynamic>>{};
+
+      for (final value in _mapList(archive.manifest['pages'], 'pages')) {
+        final container = _string(value['container'], 'container');
+        if (!archive.contains(container)) {
+          throw StateError('Container not found in SLB: $container');
+        }
+        containers[container] = _decodeObject(
+          await archive.readFile(container, cache: false),
+          container,
+        );
+      }
+
+      final package = SloomPackage._(
+        archive.manifest,
+        containers,
+        null,
+        slb: archive,
+        key: key,
+      );
+      package._validate();
+      return package;
+    } catch (_) {
+      await archive.close();
+      rethrow;
+    }
   }
 
   static SloomPackage fromJson(
@@ -243,7 +284,7 @@ class SloomPackage {
           _uriAt(_integer(value['uri'], 'animation uri')),
           _string(value['file'], 'animation file'),
           _integer(value['frame-count'], 'frame-count'),
-        )
+        ),
     ];
   }
 
@@ -278,7 +319,7 @@ class SloomPackage {
             _string(variant['codec'], 'variant codec'),
             _string(variant['file'], 'variant file'),
             _digestValue(variant['digest']),
-          )
+          ),
       ],
       stored: [
         for (final stored in _mapList(container['stored'], 'stored'))
@@ -286,7 +327,7 @@ class SloomPackage {
             SloomRect.fromList(stored['rect']),
             _integer(stored['rotation'], 'rotation'),
             _digestValue(stored['digest']),
-          )
+          ),
       ],
     );
 
@@ -365,8 +406,10 @@ class SloomPackage {
       throw StateError('Unknown animation: $uri');
     }
 
-    final document =
-        _decodeObject(await readFile(reference.file), reference.file);
+    final document = _decodeObject(
+      await readFile(reference.file),
+      reference.file,
+    );
     final frames = <String>[];
     for (final frame in _list(document['frames'], 'frames')) {
       if (frame is num) {
@@ -484,13 +527,11 @@ SloomDigest _digestValue(Object? value) {
   final digestValue = raw is String
       ? raw
       : raw is Uint8List
-          ? _hex(raw)
-          : throw const FormatException(
-              'digest value must be a string or byte string.');
-  return SloomDigest(
-    _string(map['alg'], 'digest alg'),
-    digestValue,
-  );
+      ? _hex(raw)
+      : throw const FormatException(
+          'digest value must be a string or byte string.',
+        );
+  return SloomDigest(_string(map['alg'], 'digest alg'), digestValue);
 }
 
 String _hex(List<int> bytes) =>
@@ -510,8 +551,9 @@ List<Object?> _list(Object? value, String name) {
   return value;
 }
 
-List<Map<String, dynamic>> _mapList(Object? value, String name) =>
-    [for (final item in _list(value, name)) _map(item, name)];
+List<Map<String, dynamic>> _mapList(Object? value, String name) => [
+  for (final item in _list(value, name)) _map(item, name),
+];
 
 List<int> _intList(Object? value, int? expected, String name) {
   final list = _list(value, name);
@@ -523,7 +565,7 @@ List<int> _intList(Object? value, int? expected, String name) {
       if (item is num)
         item.toInt()
       else
-        throw FormatException('$name must contain numbers.')
+        throw FormatException('$name must contain numbers.'),
   ];
 }
 
@@ -534,7 +576,7 @@ List<String> _stringList(Object? value, String name) {
       if (item is String)
         item
       else
-        throw FormatException('$name must contain strings.')
+        throw FormatException('$name must contain strings.'),
   ];
 }
 
